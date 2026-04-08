@@ -8,7 +8,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - VITE_API_URL=http://localhost:8080/api
+      - VITE_API_URL=http://localhost:8001/api
     volumes:
       - ./microshop-buyer/src:/app/src
 
@@ -19,7 +19,7 @@ services:
     ports:
       - "3001:3001"
     environment:
-      - VITE_API_URL=http://localhost:8080/api
+      - VITE_API_URL=http://localhost:8001/api
     volumes:
       - ./microshop-seller/src:/app/src
 
@@ -30,6 +30,6 @@ services:
     ports:
       - "3002:3002"
     environment:
-      - VITE_API_URL=http://localhost:8080/api
+      - VITE_API_URL=http://localhost:8001/api
     volumes:
       - ./microshop-admin/src:/app/src

@@ -5,6 +5,8 @@ import { InputField } from '../components/auth/InputField';
 import { PasswordInput } from '../components/auth/PasswordInput';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
 
+import authService from '../services/authService';
+
 // Utility to decode JWT token
 function parseJwt(token: string) {
   try {
@@ -47,6 +49,9 @@ export function Login() {
   };
 
   const handleRoleRedirection = (role: string) => {
+    // Correct mapping for redirection
+    const mappedRole = authService.mapRole(role);
+    
     // Current microfrontend ports
     const rolePorts: Record<string, string> = {
       buyer: '3000',
@@ -54,14 +59,14 @@ export function Login() {
       admin: '3002'
     };
     
-    const port = rolePorts[role];
+    const port = rolePorts[mappedRole];
     if (port) {
       if (window.location.port !== port) {
         window.location.href = `http://localhost:${port}/`;
       } else {
         // Redirection inside the same app
-        if (role === 'admin') navigate('/admin/dashboard');
-        else if (role === 'seller') navigate('/seller/products');
+        if (mappedRole === 'admin') navigate('/admin/dashboard');
+        else if (mappedRole === 'seller') navigate('/seller/products');
         else navigate('/catalog');
       }
     } else {
@@ -80,49 +85,30 @@ export function Login() {
     if (hasErrors) return;
 
     setLoading(true);
+    setApiError('');
 
     try {
-      // Intenta conectar con el backend real si VITE_API_URL está disponible
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080/api'}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
+      const data = await authService.login(formData);
       
-      const data = await response.json();
-      
-      if (response.ok && data.token) {
-        localStorage.setItem('isAuthenticated', 'true');
-        localStorage.setItem('token', data.token);
-        
+      if (data.token) {
         const decoded = parseJwt(data.token);
-        if (decoded && decoded.role) {
-          handleRoleRedirection(decoded.role);
+        authService.saveAuthData(data.token, {
+          name: data.name,
+          email: data.email,
+          role: decoded?.role || data.role
+        });
+        
+        const userRole = decoded?.role || data.role;
+        if (userRole) {
+          handleRoleRedirection(userRole);
         } else {
           navigate('/');
         }
       } else {
-        throw new Error(data.message || 'Error en inicio de sesión');
+        throw new Error('No se recibió el token de autenticación');
       }
-    } catch (error) {
-       console.warn('Backend no disponible o error, usando mock para demo');
-       // Mock fallback for frontend standalone demonstration
-       // Determine role purely by email keyword or default to buyer
-       let mockRole = 'buyer';
-       if (formData.email.includes('admin')) mockRole = 'admin';
-       if (formData.email.includes('seller')) mockRole = 'seller';
-       
-       // Generar un JWT simulado
-       const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
-       const payload = btoa(JSON.stringify({ sub: "123", role: mockRole, exp: Date.now() + 3600 }));
-       const fakeToken = `${header}.${payload}.signature`;
-       
-       localStorage.setItem('isAuthenticated', 'true');
-       localStorage.setItem('token', fakeToken);
-       
-       handleRoleRedirection(mockRole);
+    } catch (error: any) {
+      setApiError(error.message || 'Error en inicio de sesión');
     } finally {
       setLoading(false);
     }
@@ -158,7 +144,7 @@ export function Login() {
               <polyline points="22,6 12,13 2,6" />
             </svg>
           }
-          placeholder="tu@email.com (usa 'admin' o 'seller' para demo)"
+          placeholder="tu@email.com"
         />
 
         <PasswordInput

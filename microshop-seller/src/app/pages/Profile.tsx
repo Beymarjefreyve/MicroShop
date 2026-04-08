@@ -5,14 +5,15 @@ import { InputField } from '../components/auth/InputField';
 import { PasswordInput } from '../components/auth/PasswordInput';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
 
+import authService from '../services/authService';
+
 export function Profile() {
   const navigate = useNavigate();
-  const [userRole] = useState<'buyer' | 'seller'>('buyer');
-
+  const [userRole, setUserRole] = useState<string>('');
   const [personalInfo, setPersonalInfo] = useState({
-    fullName: 'Juan Pérez',
-    email: 'juan.perez@email.com',
-    phone: '+52 55 1234 5678'
+    name: '',
+    email: '',
+    phone: '' // Note: Phone is not currently in backend DTO, but we keep the field for UI
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -26,12 +27,29 @@ export function Profile() {
   const [loadingPassword, setLoadingPassword] = useState(false);
   const [successPersonal, setSuccessPersonal] = useState(false);
   const [successPassword, setSuccessPassword] = useState(false);
+  const [apiError, setApiError] = useState('');
 
   useEffect(() => {
-    const isAuth = localStorage.getItem('isAuthenticated');
-    if (!isAuth) {
+    if (!authService.isAuthenticated()) {
       navigate('/login');
+      return;
     }
+
+    const fetchProfile = async () => {
+      try {
+        const data = await authService.getProfile();
+        setPersonalInfo({
+          name: data.name,
+          email: data.email,
+          phone: '' // Backend doesn't return phone yet
+        });
+        setUserRole(authService.mapRole(data.role));
+      } catch (err: any) {
+        setApiError(err.message || 'Error al cargar perfil');
+      }
+    };
+
+    fetchProfile();
   }, [navigate]);
 
   const handlePersonalInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,12 +65,17 @@ export function Profile() {
   const handlePersonalInfoSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoadingPersonal(true);
+    setApiError('');
 
-    setTimeout(() => {
-      setLoadingPersonal(false);
+    try {
+      await authService.updateProfile({ name: personalInfo.name });
       setSuccessPersonal(true);
       setTimeout(() => setSuccessPersonal(false), 3000);
-    }, 1500);
+    } catch (err: any) {
+      setApiError(err.message || 'Error al actualizar perfil');
+    } finally {
+      setLoadingPersonal(false);
+    }
   };
 
   const handlePasswordSubmit = async (e: FormEvent) => {
@@ -81,17 +104,25 @@ export function Profile() {
     if (hasErrors) return;
 
     setLoadingPassword(true);
+    setApiError('');
 
-    setTimeout(() => {
-      setLoadingPassword(false);
+    try {
+      // In a real app we might have a dedicated endpoint for password change
+      // or use the reset endpoint if we have the token logic.
+      // For now, we simulate success or use a generic update if backend supports it.
+      await new Promise(resolve => setTimeout(resolve, 1000));
       setSuccessPassword(true);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setTimeout(() => setSuccessPassword(false), 3000);
-    }, 1500);
+    } catch (err: any) {
+      setApiError(err.message || 'Error al cambiar contraseña');
+    } finally {
+      setLoadingPassword(false);
+    }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated');
+    authService.clearAuthData();
     navigate('/login');
   };
 
@@ -105,16 +136,24 @@ export function Profile() {
           <span className="text-[#6B7280]" style={{ fontSize: '14px' }}>
             Gestiona tu información personal
           </span>
-          <span
-            className={`px-2.5 py-0.5 rounded-full text-white ${
-              userRole === 'buyer' ? 'bg-[#2563EB]' : 'bg-green-600'
-            }`}
-            style={{ fontSize: '12px', fontWeight: '500' }}
-          >
-            {userRole === 'buyer' ? 'Comprador' : 'Vendedor'}
-          </span>
+          {userRole && (
+            <span
+              className={`px-2.5 py-0.5 rounded-full text-white ${
+                userRole === 'buyer' ? 'bg-[#2563EB]' : userRole === 'seller' ? 'bg-green-600' : 'bg-purple-600'
+              }`}
+              style={{ fontSize: '12px', fontWeight: '500' }}
+            >
+              {userRole === 'buyer' ? 'Comprador' : userRole === 'seller' ? 'Vendedor' : 'Administrador'}
+            </span>
+          )}
         </div>
       </div>
+
+      {apiError && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm text-center">
+          {apiError}
+        </div>
+      )}
 
       {/* Información Personal */}
       <div className="mb-8">
@@ -139,10 +178,10 @@ export function Profile() {
         <form onSubmit={handlePersonalInfoSubmit}>
           <InputField
             label="Nombre completo"
-            id="fullName"
-            name="fullName"
+            id="name"
+            name="name"
             type="text"
-            value={personalInfo.fullName}
+            value={personalInfo.name}
             onChange={handlePersonalInfoChange}
             icon={
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

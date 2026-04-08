@@ -29,11 +29,16 @@ export function ForgotPassword() {
     if (!validateEmail(email)) return;
 
     setLoading(true);
+    setError('');
 
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await authService.forgotPassword(email);
       setSuccess(true);
-    }, 1500);
+    } catch (err: any) {
+      setError(err.message || 'Ocurrió un error al procesar tu solicitud');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
