@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  microshop-buyer:
+    build:
+      context: ./microshop-buyer
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8080/api
+    volumes:
+      - ./microshop-buyer/src:/app/src
+
+  microshop-seller:
+    build:
+      context: ./microshop-seller
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - VITE_API_URL=http://localhost:8080/api
+    volumes:
+      - ./microshop-seller/src:/app/src
+
+  microshop-admin:
+    build:
+      context: ./microshop-admin
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      - VITE_API_URL=http://localhost:8080/api
+    volumes:
+      - ./microshop-admin/src:/app/src
