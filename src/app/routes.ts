@@ -23,7 +23,7 @@ export const router = createBrowserRouter([
   {
     path: '/',
     children: [
-      { index: true, Component: Catalog },
+      { index: true, Component: Login },
       { path: 'register', Component: Register },
       { path: 'login', Component: Login },
       { path: 'forgot-password', Component: ForgotPassword },
