@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { Navbar } from '../components/shared/Navbar';
 import { StarRating } from '../components/catalog/StarRating';
 import { ProductCard } from '../components/catalog/ProductCard';
-import { products, reviews } from '../data/products';
+import { catalogService, Product } from '../services/catalogService';
 
 const imageColors: Record<string, string> = {
   laptop: '#3B82F6',
@@ -23,13 +23,50 @@ const imageColors: Record<string, string> = {
 export function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const product = products.find((p) => p.id === Number(id));
-  const productReviews = reviews[Number(id)] || [];
-
+  const [product, setProduct] = useState<Product | null>(null);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [userRating, setUserRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [showReviewForm, setShowReviewForm] = useState(true);
+
+  useEffect(() => {
+    if (id) {
+      loadProductData(Number(id));
+    }
+  }, [id]);
+
+  const loadProductData = async (productId: number) => {
+    try {
+      setLoading(true);
+      const productData = await catalogService.getProductById(productId);
+      setProduct(productData);
+      setSelectedImageIndex(0);
+
+      // Fetch related products (same category)
+      const related = await catalogService.getProducts({ 
+        category: productData.category.toString() 
+      });
+      setRelatedProducts(related.results.filter(p => p.id !== productId).slice(0, 4));
+    } catch (error) {
+      console.error('Error loading product:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F9FAFB]">
+        <Navbar />
+        <div className="pt-24 flex justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2563EB]"></div>
+        </div>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -48,21 +85,29 @@ export function ProductDetail() {
     );
   }
 
-  const bgColor = imageColors[product.image] || '#9CA3AF';
-  const relatedProducts = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  const bgColor = imageColors[product.image || 'laptop'] || '#9CA3AF';
 
   const handleQuantityChange = (delta: number) => {
     setQuantity((prev) => Math.max(1, Math.min(product.stock, prev + delta)));
   };
 
-  const handleSubmitReview = () => {
+  const handleSubmitReview = async () => {
     if (userRating > 0 && reviewText.trim()) {
-      alert('Reseña enviada correctamente');
-      setUserRating(0);
-      setReviewText('');
-      setShowReviewForm(false);
+      try {
+        await catalogService.rateProduct(product.id, userRating, reviewText, 1); // Mock user_id 1
+        alert('Reseña enviada correctamente');
+        setUserRating(0);
+        setReviewText('');
+        setShowReviewForm(false);
+        // Reload product to show new rating
+        loadProductData(product.id);
+      } catch (error) {
+        alert('Error al enviar la reseña');
+      }
     }
   };
+
+  const productReviews = product.reviews || [];
 
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
@@ -74,40 +119,60 @@ export function ProductDetail() {
           {/* Imágenes */}
           <div>
             <div
-              className="rounded-xl mb-4 flex items-center justify-center"
-              style={{ backgroundColor: bgColor, height: '400px' }}
+              className="rounded-xl mb-4 flex items-center justify-center overflow-hidden border border-[#E5E7EB]"
+              style={{ backgroundColor: product.images && product.images.length > 0 ? '#FFFFFF' : bgColor, height: '400px' }}
             >
-              <svg
-                width="120"
-                height="120"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth="1.5"
-                opacity="0.5"
-              >
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <path d="M21 15l-5-5L5 21" />
-              </svg>
+              {product.images && product.images.length > 0 ? (
+                <img 
+                  src={product.images[selectedImageIndex]?.image || product.images[0].image} 
+                  alt={product.name} 
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <svg
+                  width="120"
+                  height="120"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="1.5"
+                  opacity="0.5"
+                >
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <path d="M21 15l-5-5L5 21" />
+                </svg>
+              )}
             </div>
 
             {/* Miniaturas */}
-            <div className="grid grid-cols-4 gap-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="rounded-lg cursor-pointer border-2 border-transparent hover:border-[#2563EB] transition-colors"
-                  style={{ backgroundColor: bgColor, height: '80px' }}
-                />
-              ))}
-            </div>
+            {product.images && product.images.length > 0 && (
+              <div className="grid grid-cols-4 gap-3">
+                {product.images.map((imageItem, index) => (
+                  <button
+                    type="button"
+                    key={imageItem.id}
+                    onClick={() => setSelectedImageIndex(index)}
+                    className={`rounded-lg cursor-pointer border-2 overflow-hidden transition-colors ${
+                      selectedImageIndex === index ? 'border-[#2563EB]' : 'border-transparent hover:border-[#2563EB]'
+                    }`}
+                    style={{ backgroundColor: '#FFFFFF', height: '80px' }}
+                  >
+                    <img
+                      src={imageItem.image}
+                      alt={`${product.name} ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Información */}
           <div>
             <div className="inline-block px-3 py-1 bg-[#2563EB] bg-opacity-10 text-[#2563EB] rounded-full text-sm mb-3" style={{ fontWeight: '500' }}>
-              {product.category}
+              {product.category_name || `Categoría ${product.category}`}
             </div>
 
             <h1 className="text-[#111827] mb-3" style={{ fontSize: '28px', fontWeight: '700' }}>
@@ -115,9 +180,9 @@ export function ProductDetail() {
             </h1>
 
             <div className="flex items-center gap-2 mb-4">
-              <StarRating rating={product.rating} readOnly showNumber />
+              <StarRating rating={product.average_rating || 0} readOnly showNumber />
               <span className="text-[#6B7280] text-sm">
-                ({product.reviews} reseñas)
+                (Reseñas reales en el catálogo)
               </span>
             </div>
 
@@ -133,10 +198,10 @@ export function ProductDetail() {
               <p className="text-[#6B7280] text-sm mb-2">Vendedor</p>
               <div className="flex items-center gap-2">
                 <p className="text-[#111827]" style={{ fontWeight: '500' }}>
-                  {product.sellerName}
+                  {product.seller_name || `Vendedor ${product.seller_id}`}
                 </p>
                 <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs" style={{ fontWeight: '500' }}>
-                  Vendedor
+                  Verificado
                 </span>
               </div>
             </div>
@@ -199,19 +264,18 @@ export function ProductDetail() {
           </h2>
 
           {productReviews.length > 0 ? (
-            <div className="space-y-6 mb-8">
+            <div className="space-y-4 mb-8">
               {productReviews.map((review) => (
-                <div key={review.id} className="border-b border-[#E5E7EB] pb-6 last:border-0">
-                  <div className="flex items-center justify-between mb-2">
+                <div key={review.id} className="border border-[#E5E7EB] rounded-lg p-4">
+                  <div className="flex items-center justify-between gap-3 mb-2">
                     <p className="text-[#111827]" style={{ fontWeight: '500' }}>
-                      {review.userName}
+                      {review.user_name || `Usuario ${review.user_id}`}
                     </p>
-                    <p className="text-[#6B7280] text-sm">{review.date}</p>
-                  </div>
-                  <div className="mb-2">
                     <StarRating rating={review.rating} readOnly size="sm" />
                   </div>
-                  <p className="text-[#111827]">{review.comment}</p>
+                  <p className="text-[#111827] text-sm leading-relaxed">
+                    {review.comment || 'Sin comentario'}
+                  </p>
                 </div>
               ))}
             </div>
@@ -260,8 +324,16 @@ export function ProductDetail() {
               También te puede gustar
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {relatedProducts.map((product) => (
-                <ProductCard key={product.id} {...product} />
+              {relatedProducts.map((p) => (
+                <ProductCard 
+                  key={p.id}
+                  id={p.id}
+                  name={p.name}
+                  price={p.price}
+                  rating={p.average_rating || 0}
+                  stock={p.stock}
+                  image={p.image || 'laptop'}
+                />
               ))}
             </div>
           </div>

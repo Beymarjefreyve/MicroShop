@@ -1,25 +1,53 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminLayout } from '../components/admin/AdminLayout';
 import { AdminTable } from '../components/admin/AdminTable';
 import { InlineStockEditor } from '../components/admin/InlineStockEditor';
-import { products as initialProducts } from '../data/products';
+import { catalogService, Product } from '../services/catalogService';
 
 export function AdminInventory() {
-  const [products, setProducts] = useState(initialProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('Todas');
 
-  const handleUpdateStock = (productId: number, newStock: number) => {
-    setProducts(
-      products.map((product) =>
-        product.id === productId ? { ...product, stock: newStock } : product
-      )
-    );
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      const data = await catalogService.getProducts();
+      setProducts(data.results);
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError('No se pudieron cargar los productos. Asegúrate de que el microservicio esté activo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateStock = async (productId: number, newStock: number) => {
+    try {
+      await catalogService.updateProduct(productId, { stock: newStock });
+      setProducts(
+        products.map((product) =>
+          product.id === productId ? { ...product, stock: newStock } : product
+        )
+      );
+    } catch (err) {
+      console.error(err);
+      alert('Error al actualizar el stock');
+    }
   };
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'Todas' || product.category === categoryFilter;
+    const matchesCategory = categoryFilter === 'Todas' || 
+                           product.category_name === categoryFilter || 
+                           product.category.toString() === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
@@ -54,15 +82,42 @@ export function AdminInventory() {
     }
   };
 
-  const categories = ['Todas', ...Array.from(new Set(products.map((p) => p.category)))];
+  const categories = ['Todas', ...Array.from(new Set(products.map((p) => p.category_name || p.category.toString())))];
 
   const columns = [
-    { header: 'Producto', accessor: 'name' as const, width: '25%' },
-    { header: 'Vendedor', accessor: 'sellerName' as const, width: '20%' },
-    { header: 'Categoría', accessor: 'category' as const, width: '15%' },
+    {
+      header: 'Imagen',
+      accessor: (row: Product) => (
+        <div className="w-10 h-10 rounded border border-gray-200 overflow-hidden bg-gray-50">
+          {row.image ? (
+            <img src={row.image} alt={row.name} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-400">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="M21 15l-5-5L5 21" />
+              </svg>
+            </div>
+          )}
+        </div>
+      ),
+      width: '10%'
+    },
+    { header: 'Producto', accessor: 'name' as const, width: '20%' },
+    { 
+      header: 'Vendedor', 
+      accessor: (row: Product) => row.seller_name || `Vendedor ${row.seller_id}`, 
+      width: '20%' 
+    },
+    { 
+      header: 'Categoría', 
+      accessor: (row: Product) => row.category_name || row.category.toString(), 
+      width: '15%' 
+    },
     {
       header: 'Stock',
-      accessor: (row: typeof products[0]) => (
+      accessor: (row: Product) => (
         <InlineStockEditor
           initialStock={row.stock}
           productId={row.id}
@@ -73,12 +128,12 @@ export function AdminInventory() {
     },
     {
       header: 'Estado',
-      accessor: (row: typeof products[0]) => getStockBadge(row.stock),
+      accessor: (row: Product) => getStockBadge(row.stock),
       width: '15%'
     },
     {
       header: 'Precio',
-      accessor: (row: typeof products[0]) => `$${row.price.toFixed(2)}`,
+      accessor: (row: Product) => `$${row.price.toFixed(2)}`,
       width: '10%'
     }
   ];
@@ -89,6 +144,12 @@ export function AdminInventory() {
 
   return (
     <AdminLayout title="Inventario">
+      {error && (
+        <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+          {error}
+        </div>
+      )}
+
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white dark:bg-[#1F2937] rounded-xl shadow-md p-6 border border-[#E5E7EB] dark:border-[#374151]">
@@ -98,7 +159,7 @@ export function AdminInventory() {
                 Productos totales
               </p>
               <p className="mt-2 text-[#111827] dark:text-white" style={{ fontSize: '28px', fontWeight: '600' }}>
-                {products.length}
+                {loading ? '...' : products.length}
               </p>
             </div>
             <div className="text-4xl">📦</div>
@@ -111,7 +172,7 @@ export function AdminInventory() {
                 Stock bajo / Sin stock
               </p>
               <p className="mt-2 text-[#111827] dark:text-white" style={{ fontSize: '28px', fontWeight: '600' }}>
-                {lowStockCount} / {outOfStockCount}
+                {loading ? '...' : `${lowStockCount} / ${outOfStockCount}`}
               </p>
             </div>
             <div className="text-4xl">⚠️</div>
@@ -124,7 +185,7 @@ export function AdminInventory() {
                 Valor total inventario
               </p>
               <p className="mt-2 text-[#111827] dark:text-white" style={{ fontSize: '28px', fontWeight: '600' }}>
-                ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ${loading ? '...' : totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
             <div className="text-4xl">💰</div>
@@ -163,9 +224,15 @@ export function AdminInventory() {
       {/* Table */}
       <div>
         <p className="text-[#6B7280] dark:text-[#9CA3AF] mb-4" style={{ fontSize: '14px' }}>
-          Mostrando {filteredProducts.length} de {products.length} productos
+          {loading ? 'Cargando productos...' : `Mostrando ${filteredProducts.length} de ${products.length} productos`}
         </p>
-        <AdminTable data={filteredProducts} columns={columns} />
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2563EB]"></div>
+          </div>
+        ) : (
+          <AdminTable data={filteredProducts} columns={columns} />
+        )}
       </div>
 
       {/* Instructions */}

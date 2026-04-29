@@ -1,22 +1,27 @@
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { PrimaryButton } from '../auth/PrimaryButton';
+import { catalogService, Category } from '../../services/catalogService';
 
 interface ProductFormProps {
   mode: 'create' | 'edit';
+  productId?: number;
   initialData?: {
     name: string;
     description: string;
     price: number;
     category: string;
     stock: number;
+    image?: string;
+    images?: { id: number; image: string }[];
   };
 }
 
-export function ProductForm({ mode, initialData }: ProductFormProps) {
+export function ProductForm({ mode, productId, initialData }: ProductFormProps) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
@@ -34,7 +39,50 @@ export function ProductForm({ mode, initialData }: ProductFormProps) {
     stock: ''
   });
 
-  const categories = ['Electrónica', 'Ropa', 'Hogar', 'Deportes', 'Libros'];
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<{ id: number; image: string }[]>([]);
+  const [removedImageIds, setRemovedImageIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    loadCategories();
+    if (initialData) {
+      setFormData({
+        name: initialData.name,
+        description: initialData.description,
+        price: initialData.price,
+        category: initialData.category,
+        stock: initialData.stock
+      });
+      setExistingImages(initialData.images || []);
+      setRemovedImageIds([]);
+      setSelectedFiles([]);
+      setImagePreviews([]);
+    }
+  }, [initialData]);
+
+  useEffect(() => {
+    const loadExistingImages = async () => {
+      if (mode !== 'edit' || !productId) return;
+      try {
+        const images = await catalogService.getProductImages(productId);
+        setExistingImages(images.map(({ id, image }) => ({ id, image })));
+      } catch (error) {
+        console.error('Error loading product images:', error);
+      }
+    };
+
+    loadExistingImages();
+  }, [mode, productId]);
+
+  const loadCategories = async () => {
+    try {
+      const response = await catalogService.getCategories();
+      setCategories(response.results);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
+  };
 
   const validateField = (name: string, value: string | number) => {
     let error = '';
@@ -61,6 +109,51 @@ export function ProductForm({ mode, initialData }: ProductFormProps) {
     validateField(name, value);
   };
 
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files) return;
+    
+    const filesArray = Array.from(files);
+    const validFiles = filesArray.filter(file => file.type.startsWith('image/'));
+
+    const availableSlots = 4 - (existingImages.length + selectedFiles.length);
+    if (availableSlots <= 0) return;
+
+    const filesToAdd = validFiles.slice(0, availableSlots);
+
+    setSelectedFiles(prev => [...prev, ...filesToAdd]);
+
+    filesToAdd.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          setImagePreviews(prev => [...prev, e.target!.result as string]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleFileSelect(e.dataTransfer.files);
+  };
+
+  const removeNewImage = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingImage = (imageId: number) => {
+    setExistingImages(prev => prev.filter((img) => img.id !== imageId));
+    setRemovedImageIds(prev => [...prev, imageId]);
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -75,13 +168,41 @@ export function ProductForm({ mode, initialData }: ProductFormProps) {
     }
 
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setLoading(false);
-    setSuccess(true);
+    try {
+      const data = new FormData();
+      data.append('name', formData.name);
+      data.append('description', formData.description);
+      data.append('price', String(formData.price));
+      data.append('stock', String(formData.stock));
+      data.append('category', formData.category);
+      data.append('seller_id', '1'); // Mock seller_id 1
+      
+      selectedFiles.forEach(file => {
+        data.append('images', file);
+      });
 
-    setTimeout(() => {
-      navigate('/seller/products');
-    }, 1500);
+      if (mode === 'edit' && productId && removedImageIds.length > 0) {
+        await Promise.all(
+          removedImageIds.map((imageId) => catalogService.deleteProductImage(productId, imageId))
+        );
+      }
+
+      if (mode === 'create') {
+        await catalogService.createProduct(data);
+      } else if (mode === 'edit' && productId) {
+        await catalogService.updateProduct(productId, data);
+      }
+
+      setSuccess(true);
+      setTimeout(() => {
+        navigate('/seller/products');
+      }, 1500);
+    } catch (error: any) {
+      console.error('Error saving product:', error);
+      alert('Error al guardar el producto: ' + (error.message || 'Error desconocido'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -187,8 +308,8 @@ export function ProductForm({ mode, initialData }: ProductFormProps) {
           >
             <option value="">Selecciona una categoría</option>
             {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
+              <option key={cat.id} value={cat.id.toString()}>
+                {cat.name}
               </option>
             ))}
           </select>
@@ -198,22 +319,75 @@ export function ProductForm({ mode, initialData }: ProductFormProps) {
         {/* Imágenes */}
         <div>
           <label className="block text-[#111827] mb-2" style={{ fontSize: '14px', fontWeight: '500' }}>
-            Imágenes (máximo 4)
+            Imágenes del producto (máximo 4)
           </label>
-          <div className="border-2 border-dashed border-[#E5E7EB] rounded-lg p-8 text-center hover:border-[#2563EB] transition-colors cursor-pointer">
-            <svg
-              className="mx-auto mb-3 w-12 h-12 text-[#6B7280]"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <p className="text-[#6B7280] text-sm">
-              Haz clic para subir o arrastra las imágenes aquí
-            </p>
+          
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+            {existingImages.map((img) => (
+              <div key={img.id} className="relative aspect-square rounded-lg overflow-hidden border border-[#E5E7EB] group">
+                <img src={img.image} alt={`Imagen actual ${img.id}`} className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeExistingImage(img.id)}
+                  className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Eliminar imagen actual"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+
+            {imagePreviews.map((img, index) => (
+              <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-[#E5E7EB] group">
+                <img src={img} alt={`Preview ${index}`} className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeNewImage(index)}
+                  className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Eliminar imagen nueva"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            ))}
           </div>
+
+          {(existingImages.length + imagePreviews.length) < 4 && (
+            <div 
+              onClick={() => document.getElementById('image-input')?.click()}
+              onDragOver={onDragOver}
+              onDrop={onDrop}
+              className="border-2 border-dashed border-[#E5E7EB] rounded-lg p-8 text-center hover:border-[#2563EB] transition-colors cursor-pointer group"
+            >
+              <input
+                id="image-input"
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={(e) => handleFileSelect(e.target.files)}
+                className="hidden"
+              />
+              <svg
+                className="mx-auto mb-3 w-12 h-12 text-[#6B7280] group-hover:text-[#2563EB] transition-colors"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <p className="text-[#6B7280] text-sm group-hover:text-[#2563EB] transition-colors">
+                Haz clic para subir o arrastra las imágenes aquí
+              </p>
+              <p className="text-[#9CA3AF] text-xs mt-1">PNG, JPG hasta 10MB</p>
+            </div>
+          )}
         </div>
       </div>
 
