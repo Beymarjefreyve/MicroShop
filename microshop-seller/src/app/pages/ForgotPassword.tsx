@@ -1,4 +1,5 @@
-import { useState, FormEvent } from 'react';
+import { authService } from '../service/authService';
+import { useState, FormEvent } from 'react';  
 import { Link } from 'react-router';
 import { AuthCard } from '../components/auth/AuthCard';
 import { InputField } from '../components/auth/InputField';

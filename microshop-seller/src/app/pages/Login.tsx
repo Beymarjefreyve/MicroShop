@@ -91,16 +91,14 @@ export function Login() {
       const data = await authService.login(formData);
       
       if (data.token) {
-        const decoded = parseJwt(data.token);
         authService.saveAuthData(data.token, {
           name: data.name,
           email: data.email,
-          role: decoded?.role || data.role
+          role: data.role
         });
         
-        const userRole = decoded?.role || data.role;
-        if (userRole) {
-          handleRoleRedirection(userRole);
+        if (data.role) {
+          handleRoleRedirection(data.role);
         } else {
           navigate('/');
         }
@@ -113,6 +111,7 @@ export function Login() {
       setLoading(false);
     }
   };
+
 
   return (
     <AuthCard>

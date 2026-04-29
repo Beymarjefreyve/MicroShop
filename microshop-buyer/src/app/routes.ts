@@ -11,6 +11,7 @@ import { Payment } from './pages/Payment';
 import { Confirmation } from './pages/Confirmation';
 import { Orders } from './pages/Orders';
 import { OrderDetail } from './pages/OrderDetail';
+import { VerifyEmail } from './pages/VerifyEmail';
 
 export const router = createBrowserRouter([
   {
@@ -20,6 +21,7 @@ export const router = createBrowserRouter([
       { path: 'register', Component: Register },
       { path: 'login', Component: Login },
       { path: 'forgot-password', Component: ForgotPassword },
+      { path: 'verify-email', Component: VerifyEmail },
       { path: 'profile', Component: Profile },
       { path: 'catalog', Component: Catalog },
       { path: 'product/:id', Component: ProductDetail },
@@ -31,4 +33,4 @@ export const router = createBrowserRouter([
       { path: 'orders/:id', Component: OrderDetail },
     ],
   },
-]);
+]);

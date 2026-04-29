@@ -107,10 +107,10 @@ export function Profile() {
     setApiError('');
 
     try {
-      // In a real app we might have a dedicated endpoint for password change
-      // or use the reset endpoint if we have the token logic.
-      // For now, we simulate success or use a generic update if backend supports it.
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await authService.changePassword({
+        oldPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      });
       setSuccessPassword(true);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setTimeout(() => setSuccessPassword(false), 3000);
@@ -119,7 +119,9 @@ export function Profile() {
     } finally {
       setLoadingPassword(false);
     }
+
   };
+
 
   const handleLogout = () => {
     authService.clearAuthData();

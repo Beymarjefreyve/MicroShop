@@ -7,6 +7,7 @@ import { SellerProducts } from './pages/SellerProducts';
 import { ProductFormPage } from './pages/ProductFormPage';
 import { Orders } from './pages/Orders';
 import { OrderDetail } from './pages/OrderDetail';
+import { VerifyEmail } from './pages/VerifyEmail';
 
 export const router = createBrowserRouter([
   {
@@ -16,6 +17,7 @@ export const router = createBrowserRouter([
       { path: 'register', Component: Register },
       { path: 'login', Component: Login },
       { path: 'forgot-password', Component: ForgotPassword },
+      { path: 'verify-email', Component: VerifyEmail },
       { path: 'profile', Component: Profile },
       { path: 'seller/products', Component: SellerProducts },
       { path: 'seller/products/new', Component: ProductFormPage },
@@ -24,4 +26,4 @@ export const router = createBrowserRouter([
       { path: 'orders/:id', Component: OrderDetail },
     ],
   },
-]);
+]);

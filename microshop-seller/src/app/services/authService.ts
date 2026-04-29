@@ -1,8 +1,8 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001/api/auth';
 
 const authService = {
   async login(formData: any): Promise<any> {
-    const response = await fetch(`${API_URL}/auth/login`, {
+    const response = await fetch(`${API_URL}/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -22,10 +22,11 @@ const authService = {
       name: formData.fullName || formData.name,
       email: formData.email,
       password: formData.password,
-      role: this.unmapRole(role)
+      role: this.unmapRole(role),
+      frontendUrl: window.location.origin
     };
 
-    const response = await fetch(`${API_URL}/auth/register`, {
+    const response = await fetch(`${API_URL}/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -40,8 +41,38 @@ const authService = {
     return data;
   },
 
+  async verifyEmail(token: string): Promise<any> {
+    const response = await fetch(`${API_URL}/verify-email?token=${token}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Error al verificar correo');
+    }
+    return true;
+  },
+
+  async validateToken(token: string): Promise<any> {
+    const response = await fetch(`${API_URL}/validate-token?token=${token}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Token inválido');
+    }
+    return await response.json();
+  },
+
   async forgotPassword(email: string): Promise<any> {
-    const response = await fetch(`${API_URL}/auth/forgot-password`, {
+    const response = await fetch(`${API_URL}/forgot-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -60,7 +91,7 @@ const authService = {
   },
 
   async resetPassword(formData: any): Promise<any> {
-    const response = await fetch(`${API_URL}/auth/reset-password`, {
+    const response = await fetch(`${API_URL}/reset-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -76,7 +107,7 @@ const authService = {
   },
 
   async getProfile(): Promise<any> {
-    const response = await fetch(`${API_URL}/users/me`, {
+    const response = await fetch(`${API_URL}/profile`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${this.getToken()}`,
@@ -92,7 +123,7 @@ const authService = {
   },
 
   async updateProfile(formData: any): Promise<any> {
-    const response = await fetch(`${API_URL}/users/profile`, {
+    const response = await fetch(`${API_URL}/profile`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${this.getToken()}`,
@@ -108,23 +139,40 @@ const authService = {
     return data;
   },
 
+  async changePassword(formData: any): Promise<any> {
+    const response = await fetch(`${API_URL}/change-password`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${this.getToken()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(formData),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.message || 'Error al cambiar la contraseña');
+    }
+    return true;
+  },
+
   // Helpers
   mapRole(backendRole: string): string {
     const roles: Record<string, string> = {
-      'ROLE_BUYER': 'buyer',
-      'ROLE_SELLER': 'seller',
-      'ROLE_ADMIN': 'admin'
+      'BUYER': 'buyer',
+      'SELLER': 'seller',
+      'ADMIN': 'admin'
     };
-    return roles[backendRole] || backendRole.toLowerCase().replace('role_', '');
+    return roles[backendRole] || backendRole.toLowerCase();
   },
 
   unmapRole(frontendRole: string): string {
     const roles: Record<string, string> = {
-      'buyer': 'ROLE_BUYER',
-      'seller': 'ROLE_SELLER',
-      'admin': 'ROLE_ADMIN'
+      'buyer': 'BUYER',
+      'seller': 'SELLER',
+      'admin': 'ADMIN'
     };
-    return roles[frontendRole] || `ROLE_${frontendRole.toUpperCase()}`;
+    return roles[frontendRole] || frontendRole.toUpperCase();
   },
 
   saveAuthData(token: string, userData: any) {
