@@ -8,6 +8,8 @@ import { ProductFormPage } from './pages/ProductFormPage';
 import { Orders } from './pages/Orders';
 import { OrderDetail } from './pages/OrderDetail';
 import { VerifyEmail } from './pages/VerifyEmail';
+import { ResetPassword } from './pages/ResetPassword';
+
 
 export const router = createBrowserRouter([
   {
@@ -18,6 +20,8 @@ export const router = createBrowserRouter([
       { path: 'login', Component: Login },
       { path: 'forgot-password', Component: ForgotPassword },
       { path: 'verify-email', Component: VerifyEmail },
+      { path: 'reset-password', Component: ResetPassword },
+
       { path: 'profile', Component: Profile },
       { path: 'seller/products', Component: SellerProducts },
       { path: 'seller/products/new', Component: ProductFormPage },

@@ -12,6 +12,8 @@ import { Confirmation } from './pages/Confirmation';
 import { Orders } from './pages/Orders';
 import { OrderDetail } from './pages/OrderDetail';
 import { VerifyEmail } from './pages/VerifyEmail';
+import { ResetPassword } from './pages/ResetPassword';
+
 
 export const router = createBrowserRouter([
   {
@@ -22,6 +24,8 @@ export const router = createBrowserRouter([
       { path: 'login', Component: Login },
       { path: 'forgot-password', Component: ForgotPassword },
       { path: 'verify-email', Component: VerifyEmail },
+      { path: 'reset-password', Component: ResetPassword },
+
       { path: 'profile', Component: Profile },
       { path: 'catalog', Component: Catalog },
       { path: 'product/:id', Component: ProductDetail },
