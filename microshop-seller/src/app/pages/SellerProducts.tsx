@@ -1,17 +1,34 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Navbar } from '../components/shared/Navbar';
-import { products } from '../data/products';
+import { catalogService, Product } from '../services/catalogService';
 
 export function SellerProducts() {
   const navigate = useNavigate();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [productToDelete, setProductToDelete] = useState<number | null>(null);
 
-  const sellerProducts = products.filter((p) => p.sellerId === 1);
+  useEffect(() => {
+    loadSellerProducts();
+  }, []);
 
-  const filteredProducts = sellerProducts.filter((product) =>
+  const loadSellerProducts = async () => {
+    try {
+      setLoading(true);
+      // Hardcoded seller_id=1 for now as per previous logic
+      const response = await catalogService.getProducts({ seller_id: '1' });
+      setProducts(response.results);
+    } catch (error) {
+      console.error('Error loading seller products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -30,10 +47,17 @@ export function SellerProducts() {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
-    alert(`Producto ${productToDelete} eliminado`);
-    setShowDeleteModal(false);
-    setProductToDelete(null);
+  const confirmDelete = async () => {
+    if (productToDelete) {
+      try {
+        await catalogService.deleteProduct(productToDelete);
+        setProducts(products.filter(p => p.id !== productToDelete));
+        setShowDeleteModal(false);
+        setProductToDelete(null);
+      } catch (error) {
+        alert('Error al eliminar el producto');
+      }
+    }
   };
 
   return (
@@ -104,68 +128,80 @@ export function SellerProducts() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E5E7EB]">
-                {filteredProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: '#E5E7EB' }}
-                        >
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                            <circle cx="8.5" cy="8.5" r="1.5" />
-                            <path d="M21 15l-5-5L5 21" />
-                          </svg>
+                {loading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td colSpan={5} className="px-6 py-8 h-16 bg-gray-50"></td>
+                    </tr>
+                  ))
+                ) : (
+                  filteredProducts.map((product) => (
+                    <tr key={product.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden border border-[#E5E7EB]"
+                            style={{ backgroundColor: '#F3F4F6' }}
+                          >
+                            {product.image ? (
+                              <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                <path d="M21 15l-5-5L5 21" />
+                              </svg>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-[#111827]" style={{ fontWeight: '500' }}>
+                              {product.name}
+                            </p>
+                            <p className="text-[#6B7280] text-sm">{product.category_name || `Categoría ${product.category}`}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-[#111827]" style={{ fontWeight: '500' }}>
-                            {product.name}
-                          </p>
-                          <p className="text-[#6B7280] text-sm">{product.category}</p>
+                      </td>
+                      <td className="px-6 py-4 text-[#111827]" style={{ fontWeight: '500' }}>
+                        ${product.price.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 text-[#111827]">
+                        {product.stock}
+                      </td>
+                      <td className="px-6 py-4">
+                        {getStockBadge(product.stock)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => navigate(`/seller/products/${product.id}/edit`)}
+                            className="p-2 text-[#2563EB] hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Editar"
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(product.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Eliminar"
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                          </button>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-[#111827]" style={{ fontWeight: '500' }}>
-                      ${product.price.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 text-[#111827]">
-                      {product.stock}
-                    </td>
-                    <td className="px-6 py-4">
-                      {getStockBadge(product.stock)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => navigate(`/seller/products/${product.id}/edit`)}
-                          className="p-2 text-[#2563EB] hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Editar"
-                        >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteClick(product.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Eliminar"
-                        >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
 
-          {filteredProducts.length === 0 && (
+          {!loading && filteredProducts.length === 0 && (
             <div className="text-center py-12">
               <svg
                 className="mx-auto mb-4 w-16 h-16 text-[#9CA3AF]"

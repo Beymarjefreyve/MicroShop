@@ -1,17 +1,37 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Navbar } from '../components/shared/Navbar';
 import { SearchBar } from '../components/catalog/SearchBar';
 import { FilterSidebar } from '../components/catalog/FilterSidebar';
 import { ProductCard } from '../components/catalog/ProductCard';
-import { products } from '../data/products';
+import { catalogService, Product } from '../services/catalogService';
 
 export function Catalog() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500]);
   const [selectedRating, setSelectedRating] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      // Fetching without params to get all for local filtering as per existing UI logic
+      // In a real app with many products, we should use API params
+      const response = await catalogService.getProducts();
+      setProducts(response.results);
+    } catch (error) {
+      console.error('Error loading products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategories((prev) =>
@@ -38,14 +58,17 @@ export function Catalog() {
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           product.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(product.category);
+        product.description.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const categoryName = product.category_name || product.category.toString();
+      const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(categoryName);
+
       const matchesPrice = product.price >= priceRange[0] && product.price <= priceRange[1];
-      const matchesRating = product.rating >= selectedRating;
+      const matchesRating = (product.average_rating || 0) >= selectedRating;
 
       return matchesSearch && matchesCategory && matchesPrice && matchesRating;
     });
-  }, [searchQuery, selectedCategories, priceRange, selectedRating]);
+  }, [products, searchQuery, selectedCategories, priceRange, selectedRating]);
 
   const recommendedProducts = products.slice(0, 5);
 
@@ -72,11 +95,29 @@ export function Catalog() {
           </h2>
           <div className="overflow-x-auto pb-4 -mx-4 px-4">
             <div className="flex gap-4" style={{ minWidth: 'min-content' }}>
-              {recommendedProducts.map((product) => (
-                <div key={product.id} className="w-64 flex-shrink-0">
-                  <ProductCard {...product} />
-                </div>
-              ))}
+              {loading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="w-64 h-80 bg-gray-200 animate-pulse rounded-xl" />
+                ))
+              ) : (
+                recommendedProducts.map((product) => (
+                  <div key={product.id} className="w-64 flex-shrink-0">
+                    <ProductCard
+                      id={product.id}
+                      name={product.name}
+                      description={product.description}
+                      price={product.price}
+                      category={product.category_name || product.category.toString()}
+                      stock={product.stock}
+                      rating={product.average_rating || 0}
+                      reviews={0} // API doesn't return count directly yet
+                      image={product.image || 'laptop'}
+                      sellerId={product.seller_id}
+                      sellerName={product.seller_name || `Vendedor ${product.seller_id}`}
+                    />
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -100,11 +141,17 @@ export function Catalog() {
           <div className="flex-1">
             <div className="mb-4 flex items-center justify-between">
               <p className="text-[#6B7280] text-sm">
-                {filteredProducts.length} productos encontrados
+                {loading ? 'Buscando...' : `${filteredProducts.length} productos encontrados`}
               </p>
             </div>
 
-            {paginatedProducts.length === 0 ? (
+            {loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="h-96 bg-gray-200 animate-pulse rounded-xl" />
+                ))}
+              </div>
+            ) : paginatedProducts.length === 0 ? (
               <div className="text-center py-16">
                 <svg
                   className="mx-auto mb-4 w-16 h-16 text-[#9CA3AF]"
@@ -121,7 +168,20 @@ export function Catalog() {
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {paginatedProducts.map((product) => (
-                    <ProductCard key={product.id} {...product} />
+                    <ProductCard
+                      key={product.id}
+                      id={product.id}
+                      name={product.name}
+                      description={product.description}
+                      price={product.price}
+                      category={product.category_name || product.category.toString()}
+                      stock={product.stock}
+                      rating={product.average_rating || 0}
+                      reviews={0}
+                      image={product.image || 'laptop'}
+                      sellerId={product.seller_id}
+                      sellerName={product.seller_name || `Vendedor ${product.seller_id}`}
+                    />
                   ))}
                 </div>
 

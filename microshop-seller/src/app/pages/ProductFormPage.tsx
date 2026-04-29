@@ -1,14 +1,44 @@
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { Navbar } from '../components/shared/Navbar';
 import { ProductForm } from '../components/catalog/ProductForm';
-import { products } from '../data/products';
+import { catalogService, Product } from '../services/catalogService';
 
 export function ProductFormPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(!!id);
   const isEdit = !!id;
 
-  const product = isEdit ? products.find((p) => p.id === Number(id)) : null;
+  useEffect(() => {
+    if (isEdit) {
+      loadProduct();
+    }
+  }, [id]);
+
+  const loadProduct = async () => {
+    try {
+      setLoading(true);
+      const data = await catalogService.getProductById(Number(id));
+      setProduct(data);
+    } catch (error) {
+      console.error('Error loading product:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F9FAFB]">
+        <Navbar />
+        <div className="pt-24 flex justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2563EB]"></div>
+        </div>
+      </div>
+    );
+  }
 
   if (isEdit && !product) {
     return (
@@ -33,14 +63,17 @@ export function ProductFormPage() {
       <div className="pt-20 pb-12 px-4 sm:px-6 lg:px-8">
         <ProductForm
           mode={isEdit ? 'edit' : 'create'}
+          productId={id ? Number(id) : undefined}
           initialData={
             product
               ? {
                   name: product.name,
                   description: product.description,
                   price: product.price,
-                  category: product.category,
-                  stock: product.stock
+                  category: product.category.toString(),
+                  stock: product.stock,
+                  image: product.image,
+                  images: product.images || []
                 }
               : undefined
           }
