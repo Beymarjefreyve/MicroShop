@@ -17,12 +17,12 @@ const authService = {
     return data;
   },
 
-  async register(formData: any, role: string): Promise<any> {
+  async register(formData: any, roles: string[]): Promise<any> {
     const payload = {
       name: formData.fullName || formData.name,
       email: formData.email,
       password: formData.password,
-      role: this.unmapRole(role),
+      roles: roles.map(r => this.unmapRole(r)),
       frontendUrl: window.location.origin
     };
 
@@ -175,7 +175,7 @@ const authService = {
     return roles[frontendRole] || frontendRole.toUpperCase();
   },
 
-  saveAuthData(token: string, userData: any) {
+  saveAuthData(token: string, userData: { name: string; email: string; roles: string[] }) {
     localStorage.setItem('isAuthenticated', 'true');
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));

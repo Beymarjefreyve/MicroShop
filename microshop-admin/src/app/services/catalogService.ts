@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8002/api';
+const API_URL = import.meta.env.VITE_CATALOG_URL || 'http://localhost:8002/api';
 
 export interface Product {
   id: number;

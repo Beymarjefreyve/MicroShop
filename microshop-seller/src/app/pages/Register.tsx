@@ -14,7 +14,7 @@ export function Register() {
     password: '',
     confirmPassword: ''
   });
-  const [role, setRole] = useState<'buyer' | 'seller'>('seller');
+  const [roles, setRoles] = useState<string[]>(['seller']);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [acceptTerms, setAcceptTerms] = useState(false);
@@ -54,6 +54,16 @@ export function Register() {
     setApiError('');
   };
 
+  const toggleRole = (role: string) => {
+    setRoles(prev => {
+      if (prev.includes(role)) {
+        if (prev.length === 1) return prev; // Must have at least one role
+        return prev.filter(r => r !== role);
+      }
+      return [...prev, role];
+    });
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -68,7 +78,7 @@ export function Register() {
     setApiError('');
 
     try {
-      await authService.register(formData, role);
+      await authService.register(formData, roles);
       setSuccess(true);
     } catch (error: any) {
       setApiError(error.message || 'Error en el registro');
@@ -108,9 +118,9 @@ export function Register() {
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => setRole('buyer')}
+              onClick={() => toggleRole('buyer')}
               className={`py-2 px-4 rounded-lg text-sm font-medium transition-all ${
-                role === 'buyer'
+                roles.includes('buyer')
                   ? 'bg-[#2563EB] text-white shadow-md'
                   : 'bg-[#F3F4F6] text-[#6B7280] hover:bg-[#E5E7EB]'
               }`}
@@ -119,9 +129,9 @@ export function Register() {
             </button>
             <button
               type="button"
-              onClick={() => setRole('seller')}
+              onClick={() => toggleRole('seller')}
               className={`py-2 px-4 rounded-lg text-sm font-medium transition-all ${
-                role === 'seller'
+                roles.includes('seller')
                   ? 'bg-[#2563EB] text-white shadow-md'
                   : 'bg-[#F3F4F6] text-[#6B7280] hover:bg-[#E5E7EB]'
               }`}
@@ -129,6 +139,9 @@ export function Register() {
               Vendedor
             </button>
           </div>
+          <p className="mt-2 text-xs text-[#9CA3AF]">
+            * Puedes seleccionar ambos roles
+          </p>
         </div>
 
         <InputField

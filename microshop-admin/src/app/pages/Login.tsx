@@ -27,6 +27,9 @@ export function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
+  const [showRoleSelector, setShowRoleSelector] = useState(false);
+  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
+  const [loginData, setLoginData] = useState<any>(null);
 
   const validateField = (name: string, value: string) => {
     let error = '';
@@ -91,16 +94,19 @@ export function Login() {
       const data = await authService.login(formData);
       
       if (data.token) {
-        authService.saveAuthData(data.token, {
-          name: data.name,
-          email: data.email,
-          role: data.role
-        });
-        
-        if (data.role) {
-          handleRoleRedirection(data.role);
+        if (data.roles && data.roles.length > 1) {
+          setAvailableRoles(data.roles);
+          setLoginData(data);
+          setShowRoleSelector(true);
+        } else if (data.roles && data.roles.length === 1) {
+          authService.saveAuthData(data.token, {
+            name: data.name,
+            email: data.email,
+            roles: data.roles
+          });
+          handleRoleRedirection(data.roles[0]);
         } else {
-          navigate('/');
+          throw new Error('El usuario no tiene roles asignados');
         }
       } else {
         throw new Error('No se recibió el token de autenticación');
@@ -109,6 +115,17 @@ export function Login() {
       setApiError(error.message || 'Error en inicio de sesión');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const selectRole = (role: string) => {
+    if (loginData) {
+      authService.saveAuthData(loginData.token, {
+        name: loginData.name,
+        email: loginData.email,
+        roles: loginData.roles
+      });
+      handleRoleRedirection(role);
     }
   };
 
@@ -128,61 +145,96 @@ export function Login() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
-        <InputField
-          label="Correo electrónico"
-          id="email"
-          name="email"
-          type="email"
-          value={formData.email}
-          onChange={handleChange}
-          error={errors.email}
-          icon={
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-              <polyline points="22,6 12,13 2,6" />
-            </svg>
-          }
-          placeholder="tu@email.com"
-        />
+      {showRoleSelector ? (
+        <div className="space-y-4">
+          <p className="text-center text-[#6B7280] mb-6" style={{ fontSize: '14px' }}>
+            Selecciona cómo quieres entrar hoy:
+          </p>
+          <div className="grid gap-3">
+            {availableRoles.map((role) => (
+              <button
+                key={role}
+                onClick={() => selectRole(role)}
+                className="w-full py-3 px-4 bg-white border-2 border-[#E5E7EB] hover:border-[#2563EB] hover:bg-[#F8FAFC] text-[#374151] font-semibold rounded-xl transition-all duration-200 flex items-center justify-between group"
+              >
+                <span>
+                  {role === 'BUYER' ? 'Comprador' : role === 'SELLER' ? 'Vendedor' : role === 'ADMIN' ? 'Administrador' : role}
+                </span>
+                <svg 
+                  className="w-5 h-5 text-[#9CA3AF] group-hover:text-[#2563EB] transition-colors" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            ))}
+          </div>
+          <button 
+            onClick={() => setShowRoleSelector(false)}
+            className="w-full mt-4 text-sm text-[#6B7280] hover:text-[#374151] underline transition-colors"
+          >
+            Volver al inicio de sesión
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          <InputField
+            label="Correo electrónico"
+            id="email"
+            name="email"
+            type="email"
+            value={formData.email}
+            onChange={handleChange}
+            error={errors.email}
+            icon={
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                <polyline points="22,6 12,13 2,6" />
+              </svg>
+            }
+            placeholder="tu@email.com"
+          />
 
-        <PasswordInput
-          label="Contraseña"
-          id="password"
-          name="password"
-          value={formData.password}
-          onChange={handleChange}
-          error={errors.password}
-          placeholder="••••••••"
-        />
+          <PasswordInput
+            label="Contraseña"
+            id="password"
+            name="password"
+            value={formData.password}
+            onChange={handleChange}
+            error={errors.password}
+            placeholder="••••••••"
+          />
 
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="remember"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              className="w-4 h-4 border-[#D1D5DB] rounded accent-[#2563EB] cursor-pointer"
-            />
-            <label htmlFor="remember" className="text-[#6B7280] cursor-pointer" style={{ fontSize: '14px' }}>
-              Recordarme
-            </label>
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="remember"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 border-[#D1D5DB] rounded accent-[#2563EB] cursor-pointer"
+              />
+              <label htmlFor="remember" className="text-[#6B7280] cursor-pointer" style={{ fontSize: '14px' }}>
+                Recordarme
+              </label>
+            </div>
+
+            <Link
+              to="/forgot-password"
+              className="text-[#2563EB] hover:underline"
+              style={{ fontSize: '14px', fontWeight: '500' }}
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
           </div>
 
-          <Link
-            to="/forgot-password"
-            className="text-[#2563EB] hover:underline"
-            style={{ fontSize: '14px', fontWeight: '500' }}
-          >
-            ¿Olvidaste tu contraseña?
-          </Link>
-        </div>
-
-        <PrimaryButton type="submit" loading={loading}>
-          Iniciar sesión
-        </PrimaryButton>
-      </form>
+          <PrimaryButton type="submit" loading={loading}>
+            Iniciar sesión
+          </PrimaryButton>
+        </form>
+      )}
 
       <p className="text-center mt-6 text-[#6B7280]" style={{ fontSize: '14px' }}>
         ¿No tienes cuenta?{' '}
