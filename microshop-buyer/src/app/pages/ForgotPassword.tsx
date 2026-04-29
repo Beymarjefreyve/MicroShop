@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { AuthCard } from '../components/auth/AuthCard';
 import { InputField } from '../components/auth/InputField';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
+import authService from '../services/authService';
 
 export function ForgotPassword() {
   const [email, setEmail] = useState('');

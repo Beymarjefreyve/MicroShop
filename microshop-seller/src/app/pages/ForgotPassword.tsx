@@ -1,4 +1,4 @@
-import { authService } from '../service/authService';
+import authService from '../services/authService';
 import { useState, FormEvent } from 'react';  
 import { Link } from 'react-router';
 import { AuthCard } from '../components/auth/AuthCard';
