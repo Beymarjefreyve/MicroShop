@@ -1,4 +1,4 @@
-import { CartItem as CartItemType } from '../context/CartContext';
+import { CartItem as CartItemType } from '../../context/CartContext';
 
 interface CartItemProps {
   item: CartItemType;

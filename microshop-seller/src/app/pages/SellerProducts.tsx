@@ -143,8 +143,8 @@ export function SellerProducts() {
                             className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden border border-[#E5E7EB]"
                             style={{ backgroundColor: '#F3F4F6' }}
                           >
-                            {product.image ? (
-                              <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                            {product.images && product.images.length > 0 ? (
+                              <img src={product.images[0].image} alt={product.name} className="w-full h-full object-cover" />
                             ) : (
                               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
                                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />

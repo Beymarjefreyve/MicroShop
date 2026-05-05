@@ -1,5 +1,14 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001/api/auth';
 
+interface StoredUser {
+  id?: number | string;
+  user_id?: number | string;
+  seller_id?: number | string;
+  name?: string;
+  email?: string;
+  role?: string;
+}
+
 const authService = {
   async login(formData: any): Promise<any> {
     const response = await fetch(`${API_URL}/login`, {
@@ -175,7 +184,7 @@ const authService = {
     return roles[frontendRole] || frontendRole.toUpperCase();
   },
 
-  saveAuthData(token: string, userData: any) {
+  saveAuthData(token: string, userData: StoredUser) {
     localStorage.setItem('isAuthenticated', 'true');
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
@@ -189,6 +198,28 @@ const authService = {
 
   getToken(): string | null {
     return localStorage.getItem('token');
+  },
+
+  getStoredUser(): StoredUser | null {
+    const rawUser = localStorage.getItem('user');
+    if (!rawUser) return null;
+    try {
+      return JSON.parse(rawUser) as StoredUser;
+    } catch {
+      return null;
+    }
+  },
+
+  getCurrentUserId(): number | null {
+    const user = this.getStoredUser();
+    const possibleIds = [user?.id, user?.user_id, user?.seller_id];
+    for (const value of possibleIds) {
+      const parsed = Number(value);
+      if (!Number.isNaN(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+    return null;
   },
 
   isAuthenticated(): boolean {

@@ -49,12 +49,7 @@ export const catalogService = {
         image: img.image && !img.image.startsWith('http') 
           ? `${API_URL.replace('/api', '')}${img.image}` 
           : img.image
-      })) : [],
-      image: p.image && !p.image.startsWith('http')
-        ? `${API_URL.replace('/api', '')}${p.image}`
-        : (p.image || (p.images && p.images[0]?.image && !p.images[0].image.startsWith('http')
-          ? `${API_URL.replace('/api', '')}${p.images[0].image}`
-          : p.images?.[0]?.image))
+      })) : []
     }));
     return data;
   },
@@ -72,11 +67,6 @@ export const catalogService = {
     return { 
       ...data, 
       price: parseFloat(data.price),
-      image: data.image && !data.image.startsWith('http')
-        ? `${API_URL.replace('/api', '')}${data.image}`
-        : (data.image || (data.images && data.images[0]?.image && !data.images[0].image.startsWith('http')
-          ? `${API_URL.replace('/api', '')}${data.images[0].image}`
-          : data.images?.[0]?.image)),
       images: data.images ? data.images.map((img: any) => ({
         ...img,
         image: img.image && !img.image.startsWith('http')
@@ -116,12 +106,7 @@ export const catalogService = {
         image: img.image && !img.image.startsWith('http') 
           ? `${API_URL.replace('/api', '')}${img.image}` 
           : img.image
-      })) : [],
-      image: data.image && !data.image.startsWith('http')
-        ? `${API_URL.replace('/api', '')}${data.image}`
-        : (data.image || (data.images && data.images[0]?.image && !data.images[0].image.startsWith('http')
-          ? `${API_URL.replace('/api', '')}${data.images[0].image}`
-          : data.images?.[0]?.image))
+      })) : []
     };
   },
 
@@ -145,12 +130,7 @@ export const catalogService = {
         image: img.image && !img.image.startsWith('http') 
           ? `${API_URL.replace('/api', '')}${img.image}` 
           : img.image
-      })) : [],
-      image: data.image && !data.image.startsWith('http')
-        ? `${API_URL.replace('/api', '')}${data.image}`
-        : (data.image || (data.images && data.images[0]?.image && !data.images[0].image.startsWith('http')
-          ? `${API_URL.replace('/api', '')}${data.images[0].image}`
-          : data.images?.[0]?.image))
+      })) : []
     };
   },
 

@@ -3,7 +3,7 @@ import { ButtonHTMLAttributes, ReactNode } from 'react';
 interface PrimaryButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   loading?: boolean;
-  variant?: 'primary' | 'danger';
+  variant?: 'primary' | 'danger' | 'outline';
 }
 
 export function PrimaryButton({
@@ -16,9 +16,18 @@ export function PrimaryButton({
 }: PrimaryButtonProps) {
   const baseClasses = 'w-full py-2.5 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2';
 
-  const variantClasses = variant === 'danger'
-    ? 'bg-white text-red-600 border-2 border-red-600 hover:bg-red-50'
-    : 'bg-[#2563EB] text-white hover:bg-[#1D4ED8]';
+  const getVariantClasses = () => {
+    switch (variant) {
+      case 'danger':
+        return 'bg-white text-red-600 border-2 border-red-600 hover:bg-red-50';
+      case 'outline':
+        return 'bg-white text-[#2563EB] border-2 border-[#2563EB] hover:bg-blue-50';
+      default:
+        return 'bg-[#2563EB] text-white hover:bg-[#1D4ED8]';
+    }
+  };
+
+  const variantClasses = getVariantClasses();
 
   return (
     <button

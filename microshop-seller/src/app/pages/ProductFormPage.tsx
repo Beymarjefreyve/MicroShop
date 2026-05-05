@@ -72,7 +72,6 @@ export function ProductFormPage() {
                   price: product.price,
                   category: product.category.toString(),
                   stock: product.stock,
-                  image: product.image,
                   images: product.images || []
                 }
               : undefined

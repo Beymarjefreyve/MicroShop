@@ -91,7 +91,10 @@ export function Login() {
       const data = await authService.login(formData);
       
       if (data.token) {
+        const decodedToken = parseJwt(data.token);
+        const userId = data.id ?? data.user_id ?? decodedToken?.user_id ?? decodedToken?.id ?? decodedToken?.sub;
         authService.saveAuthData(data.token, {
+          id: userId,
           name: data.name,
           email: data.email,
           role: data.role

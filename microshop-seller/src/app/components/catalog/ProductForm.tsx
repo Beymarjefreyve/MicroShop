@@ -2,6 +2,7 @@ import { useState, FormEvent, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { PrimaryButton } from '../auth/PrimaryButton';
 import { catalogService, Category } from '../../services/catalogService';
+import authService from '../../services/authService';
 
 interface ProductFormProps {
   mode: 'create' | 'edit';
@@ -12,7 +13,6 @@ interface ProductFormProps {
     price: number;
     category: string;
     stock: number;
-    image?: string;
     images?: { id: number; image: string }[];
   };
 }
@@ -169,13 +169,18 @@ export function ProductForm({ mode, productId, initialData }: ProductFormProps) 
 
     setLoading(true);
     try {
+      const sellerId = authService.getCurrentUserId();
+      if (!sellerId) {
+        throw new Error('No se pudo identificar al vendedor autenticado. Inicia sesión nuevamente.');
+      }
+
       const data = new FormData();
       data.append('name', formData.name);
       data.append('description', formData.description);
       data.append('price', String(formData.price));
       data.append('stock', String(formData.stock));
       data.append('category', formData.category);
-      data.append('seller_id', '1'); // Mock seller_id 1
+      data.append('seller_id', String(sellerId));
       
       selectedFiles.forEach(file => {
         data.append('images', file);
@@ -199,7 +204,24 @@ export function ProductForm({ mode, productId, initialData }: ProductFormProps) 
       }, 1500);
     } catch (error: any) {
       console.error('Error saving product:', error);
-      alert('Error al guardar el producto: ' + (error.message || 'Error desconocido'));
+      let errorMessage = 'Error desconocido al guardar el producto';
+      
+      try {
+        // Handle cases where the error is a JSON string (from our service)
+        const parsedError = JSON.parse(error.message);
+        if (typeof parsedError === 'object') {
+          // Flatten errors if they are in { field: [msg] } format
+          errorMessage = Object.entries(parsedError)
+            .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+            .join(' | ');
+        } else {
+          errorMessage = error.message;
+        }
+      } catch {
+        errorMessage = error.message || errorMessage;
+      }
+      
+      alert('Error: ' + errorMessage);
     } finally {
       setLoading(false);
     }
