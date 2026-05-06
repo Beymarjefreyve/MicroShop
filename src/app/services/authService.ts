@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001/api/auth';
+const API_URL = import.meta.env.VITE_AUTH_API_URL || 'http://localhost:8001/api/auth';
 
 const authService = {
   async login(formData: any): Promise<any> {
@@ -77,7 +77,7 @@ const authService = {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         email,
         frontendUrl: window.location.origin
       }),
