@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { Navbar } from '../components/shared/Navbar';
 import { StarRating } from '../components/catalog/StarRating';
 import { ProductCard } from '../components/catalog/ProductCard';
-import { products, reviews } from '../data/products';
+import { catalogService, Product } from '../services/catalogService';
 
 const imageColors: Record<string, string> = {
   laptop: '#3B82F6',
@@ -23,20 +23,58 @@ const imageColors: Record<string, string> = {
 export function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const product = products.find((p) => p.id === Number(id));
-  const productReviews = reviews[Number(id)] || [];
-
+  
+  const [product, setProduct] = useState<Product | null>(null);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [userRating, setUserRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [showReviewForm, setShowReviewForm] = useState(true);
 
-  if (!product) {
+  useEffect(() => {
+    const fetchProduct = async () => {
+      if (!id) return;
+      try {
+        setLoading(true);
+        const data = await catalogService.getProductById(Number(id));
+        setProduct(data);
+        
+        // Fetch related products (same category)
+        const related = await catalogService.getProducts({ 
+          category: data.category.toString(),
+          limit: '5'
+        });
+        setRelatedProducts(related.results.filter(p => p.id !== data.id).slice(0, 4));
+      } catch (err: any) {
+        setError('No se pudo cargar el producto.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F9FAFB]">
+        <Navbar />
+        <div className="pt-32 flex justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2563EB]"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !product) {
     return (
       <div className="min-h-screen bg-[#F9FAFB]">
         <Navbar />
         <div className="pt-24 px-4 text-center">
-          <p className="text-[#6B7280]">Producto no encontrado</p>
+          <p className="text-[#6B7280]">{error || 'Producto no encontrado'}</p>
           <button
             onClick={() => navigate('/catalog')}
             className="mt-4 text-[#2563EB] hover:underline"
@@ -48,8 +86,8 @@ export function ProductDetail() {
     );
   }
 
-  const bgColor = imageColors[product.image] || '#9CA3AF';
-  const relatedProducts = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  const isUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('/media'));
+  const bgColor = !isUrl ? (imageColors[product.image || ''] || '#9CA3AF') : 'transparent';
 
   const handleQuantityChange = (delta: number) => {
     setQuantity((prev) => Math.max(1, Math.min(product.stock, prev + delta)));
@@ -69,45 +107,59 @@ export function ProductDetail() {
       <Navbar />
 
       <div className="pt-20 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        {/* Producto principal */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
           {/* Imágenes */}
           <div>
             <div
-              className="rounded-xl mb-4 flex items-center justify-center"
+              className="rounded-xl mb-4 flex items-center justify-center overflow-hidden"
               style={{ backgroundColor: bgColor, height: '400px' }}
             >
-              <svg
-                width="120"
-                height="120"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth="1.5"
-                opacity="0.5"
-              >
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <path d="M21 15l-5-5L5 21" />
-              </svg>
+              {isUrl ? (
+                <img 
+                  src={product.image} 
+                  alt={product.name} 
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/600x600?text=MicroShop';
+                  }}
+                />
+              ) : (
+                <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity="0.5">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <path d="M21 15l-5-5L5 21" />
+                </svg>
+              )}
             </div>
 
             {/* Miniaturas */}
             <div className="grid grid-cols-4 gap-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="rounded-lg cursor-pointer border-2 border-transparent hover:border-[#2563EB] transition-colors"
-                  style={{ backgroundColor: bgColor, height: '80px' }}
-                />
-              ))}
+              {(product.images && product.images.length > 0) ? (
+                product.images.slice(0, 4).map((img, i) => (
+                  <div
+                    key={i}
+                    className="rounded-lg cursor-pointer border-2 border-transparent hover:border-[#2563EB] transition-all overflow-hidden"
+                    style={{ height: '80px' }}
+                  >
+                    <img src={img.image} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ))
+              ) : (
+                [1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="rounded-lg cursor-pointer border-2 border-transparent hover:border-[#2563EB] transition-colors"
+                    style={{ backgroundColor: bgColor, height: '80px' }}
+                  />
+                ))
+              )}
             </div>
           </div>
 
           {/* Información */}
           <div>
             <div className="inline-block px-3 py-1 bg-[#2563EB] bg-opacity-10 text-[#2563EB] rounded-full text-sm mb-3" style={{ fontWeight: '500' }}>
-              {product.category}
+              {product.category_name || 'Sin categoría'}
             </div>
 
             <h1 className="text-[#111827] mb-3" style={{ fontSize: '28px', fontWeight: '700' }}>
@@ -115,10 +167,7 @@ export function ProductDetail() {
             </h1>
 
             <div className="flex items-center gap-2 mb-4">
-              <StarRating rating={product.rating} readOnly showNumber />
-              <span className="text-[#6B7280] text-sm">
-                ({product.reviews} reseñas)
-              </span>
+              <StarRating rating={product.average_rating || 0} readOnly showNumber />
             </div>
 
             <p className="text-[#2563EB] mb-4" style={{ fontSize: '32px', fontWeight: '700' }}>
@@ -129,19 +178,18 @@ export function ProductDetail() {
               {product.description}
             </p>
 
-            <div className="bg-white rounded-lg p-4 mb-6">
+            <div className="bg-white rounded-lg p-4 mb-6 shadow-sm border border-gray-100">
               <p className="text-[#6B7280] text-sm mb-2">Vendedor</p>
               <div className="flex items-center gap-2">
                 <p className="text-[#111827]" style={{ fontWeight: '500' }}>
-                  {product.sellerName}
+                  {product.seller_name || 'Vendedor Verificado'}
                 </p>
                 <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs" style={{ fontWeight: '500' }}>
-                  Vendedor
+                  PRO
                 </span>
               </div>
             </div>
 
-            {/* Selector de cantidad */}
             <div className="mb-6">
               <p className="text-[#111827] mb-2" style={{ fontSize: '14px', fontWeight: '500' }}>
                 Cantidad
@@ -170,87 +218,25 @@ export function ProductDetail() {
               </div>
             </div>
 
-            {/* Botones de compra */}
             <div className="space-y-3">
               <button
                 disabled={product.stock === 0}
-                className="w-full py-3 bg-[#2563EB] text-white rounded-lg hover:bg-[#1D4ED8] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                className="w-full py-3 bg-[#2563EB] text-white rounded-lg hover:bg-[#1D4ED8] disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-200"
                 style={{ fontSize: '16px', fontWeight: '600' }}
                 onClick={() => alert('Producto agregado al carrito')}
               >
                 {product.stock === 0 ? 'Sin stock' : 'Agregar al carrito'}
               </button>
-              <button
-                disabled={product.stock === 0}
-                className="w-full py-3 border-2 border-[#2563EB] text-[#2563EB] rounded-lg hover:bg-[#2563EB] hover:bg-opacity-5 disabled:border-gray-300 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
-                style={{ fontSize: '16px', fontWeight: '600' }}
-                onClick={() => alert('Compra directa iniciada')}
-              >
-                Comprar ahora
-              </button>
             </div>
           </div>
         </div>
 
-        {/* Reseñas */}
+        {/* Reseñas (Mocked for now as catalog-service might not handle reviews yet) */}
         <div className="bg-white rounded-xl shadow-md p-6 mb-8">
           <h2 className="text-[#111827] mb-6" style={{ fontSize: '22px', fontWeight: '600' }}>
             Reseñas de clientes
           </h2>
-
-          {productReviews.length > 0 ? (
-            <div className="space-y-6 mb-8">
-              {productReviews.map((review) => (
-                <div key={review.id} className="border-b border-[#E5E7EB] pb-6 last:border-0">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-[#111827]" style={{ fontWeight: '500' }}>
-                      {review.userName}
-                    </p>
-                    <p className="text-[#6B7280] text-sm">{review.date}</p>
-                  </div>
-                  <div className="mb-2">
-                    <StarRating rating={review.rating} readOnly size="sm" />
-                  </div>
-                  <p className="text-[#111827]">{review.comment}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-[#6B7280] mb-8">Aún no hay reseñas para este producto.</p>
-          )}
-
-          {/* Formulario de reseña */}
-          {showReviewForm && (
-            <div className="border-t border-[#E5E7EB] pt-6">
-              <h3 className="text-[#111827] mb-4" style={{ fontSize: '16px', fontWeight: '600' }}>
-                Escribe tu reseña
-              </h3>
-
-              <div className="mb-4">
-                <p className="text-[#111827] mb-2 text-sm" style={{ fontWeight: '500' }}>
-                  Tu valoración
-                </p>
-                <StarRating rating={userRating} onRatingChange={setUserRating} size="lg" />
-              </div>
-
-              <textarea
-                value={reviewText}
-                onChange={(e) => setReviewText(e.target.value)}
-                placeholder="Comparte tu experiencia con este producto..."
-                rows={4}
-                className="w-full px-4 py-3 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB] resize-none mb-4"
-              />
-
-              <button
-                onClick={handleSubmitReview}
-                disabled={userRating === 0 || !reviewText.trim()}
-                className="px-6 py-2.5 bg-[#2563EB] text-white rounded-lg hover:bg-[#1D4ED8] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                style={{ fontSize: '14px', fontWeight: '500' }}
-              >
-                Enviar reseña
-              </button>
-            </div>
-          )}
+          <p className="text-[#6B7280] mb-8">Aún no hay reseñas para este producto.</p>
         </div>
 
         {/* También te puede gustar */}
@@ -260,8 +246,16 @@ export function ProductDetail() {
               También te puede gustar
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {relatedProducts.map((product) => (
-                <ProductCard key={product.id} {...product} />
+              {relatedProducts.map((p) => (
+                <ProductCard 
+                  key={p.id}
+                  id={p.id}
+                  name={p.name}
+                  price={p.price}
+                  rating={p.average_rating || 0}
+                  stock={p.stock}
+                  image={p.image || 'default'}
+                />
               ))}
             </div>
           </div>

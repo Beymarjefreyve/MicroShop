@@ -27,28 +27,42 @@ const imageColors: Record<string, string> = {
 
 export function ProductCard({ id, name, price, rating, stock, image }: ProductCardProps) {
   const isOutOfStock = stock === 0;
-  const bgColor = imageColors[image] || '#9CA3AF';
+  
+  // If image is a URL, use it; otherwise use color placeholder
+  const isUrl = image && (image.startsWith('http') || image.startsWith('/media'));
+  const bgColor = !isUrl ? (imageColors[image] || '#9CA3AF') : 'transparent';
 
   return (
     <Link to={`/product/${id}`}>
       <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden h-full flex flex-col">
-        {/* Image placeholder */}
-        <div className="relative" style={{ backgroundColor: bgColor, height: '200px' }}>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <svg
-              width="80"
-              height="80"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="1.5"
-              opacity="0.5"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <path d="M21 15l-5-5L5 21" />
-            </svg>
-          </div>
+        {/* Image placeholder or real image */}
+        <div className="relative overflow-hidden" style={{ backgroundColor: bgColor, height: '200px' }}>
+          {isUrl ? (
+            <img 
+              src={image} 
+              alt={name} 
+              className="w-full h-full object-cover transition-transform hover:scale-105 duration-500"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x400?text=MicroShop';
+              }}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <svg
+                width="80"
+                height="80"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="white"
+                strokeWidth="1.5"
+                opacity="0.5"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="M21 15l-5-5L5 21" />
+              </svg>
+            </div>
+          )}
           {isOutOfStock && (
             <div className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded-md text-xs" style={{ fontWeight: '600' }}>
               Agotado
