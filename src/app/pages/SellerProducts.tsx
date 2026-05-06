@@ -1,17 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Navbar } from '../components/shared/Navbar';
-import { products } from '../data/products';
+import { catalogService, Product } from '../services/catalogService';
 
 export function SellerProducts() {
   const navigate = useNavigate();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [productToDelete, setProductToDelete] = useState<number | null>(null);
 
-  const sellerProducts = products.filter((p) => p.sellerId === 1);
+  useEffect(() => {
+    const fetchSellerProducts = async () => {
+      setIsLoading(true);
+      try {
+        // In a real app, we would filter by the logged-in seller's ID
+        const data = await catalogService.getProducts();
+        setProducts(data.results);
+      } catch (error) {
+        console.error('Error fetching seller products:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchSellerProducts();
+  }, []);
 
-  const filteredProducts = sellerProducts.filter((product) =>
+  const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -109,20 +125,24 @@ export function SellerProducts() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div
-                          className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
+                          className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
                           style={{ backgroundColor: '#E5E7EB' }}
                         >
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                            <circle cx="8.5" cy="8.5" r="1.5" />
-                            <path d="M21 15l-5-5L5 21" />
-                          </svg>
+                          {product.image ? (
+                            <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                              <circle cx="8.5" cy="8.5" r="1.5" />
+                              <path d="M21 15l-5-5L5 21" />
+                            </svg>
+                          )}
                         </div>
                         <div>
                           <p className="text-[#111827]" style={{ fontWeight: '500' }}>
                             {product.name}
                           </p>
-                          <p className="text-[#6B7280] text-sm">{product.category}</p>
+                          <p className="text-[#6B7280] text-sm">{product.category_name || product.category}</p>
                         </div>
                       </div>
                     </td>

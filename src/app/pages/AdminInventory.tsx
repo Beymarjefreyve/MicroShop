@@ -1,13 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminLayout } from '../components/admin/AdminLayout';
 import { AdminTable } from '../components/admin/AdminTable';
 import { InlineStockEditor } from '../components/admin/InlineStockEditor';
-import { products as initialProducts } from '../data/products';
+import { catalogService, Product } from '../services/catalogService';
 
 export function AdminInventory() {
-  const [products, setProducts] = useState(initialProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('Todas');
+
+  useEffect(() => {
+    const fetchInventory = async () => {
+      setIsLoading(true);
+      try {
+        const data = await catalogService.getProducts();
+        setProducts(data.results);
+      } catch (error) {
+        console.error('Error fetching inventory:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchInventory();
+  }, []);
 
   const handleUpdateStock = (productId: number, newStock: number) => {
     setProducts(
@@ -19,7 +35,7 @@ export function AdminInventory() {
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'Todas' || product.category === categoryFilter;
+    const matchesCategory = categoryFilter === 'Todas' || product.category.toString() === categoryFilter || product.category_name === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 

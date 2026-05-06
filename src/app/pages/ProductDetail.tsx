@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { Navbar } from '../components/shared/Navbar';
 import { StarRating } from '../components/catalog/StarRating';
 import { ProductCard } from '../components/catalog/ProductCard';
-import { products, reviews } from '../data/products';
+import { catalogService, Product } from '../services/catalogService';
 
 const imageColors: Record<string, string> = {
   laptop: '#3B82F6',
@@ -23,13 +23,48 @@ const imageColors: Record<string, string> = {
 export function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const product = products.find((p) => p.id === Number(id));
-  const productReviews = reviews[Number(id)] || [];
+  const [product, setProduct] = useState<Product | null>(null);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [productReviews, setProductReviews] = useState<any[]>([]);
 
   const [quantity, setQuantity] = useState(1);
   const [userRating, setUserRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [showReviewForm, setShowReviewForm] = useState(true);
+
+  useEffect(() => {
+    const fetchProductData = async () => {
+      if (!id) return;
+      setIsLoading(true);
+      try {
+        const productData = await catalogService.getProductById(Number(id));
+        setProduct(productData);
+        setProductReviews(productData.reviews || []);
+        
+        // Fetch related products (same category)
+        const allProducts = await catalogService.getProducts({ category: productData.category.toString() });
+        setRelatedProducts(allProducts.results.filter(p => p.id !== Number(id)).slice(0, 4));
+      } catch (error) {
+        console.error('Error fetching product detail:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchProductData();
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#F9FAFB]">
+        <Navbar />
+        <div className="pt-24 px-4 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2563EB] mx-auto"></div>
+          <p className="mt-4 text-[#6B7280]">Cargando producto...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -48,8 +83,7 @@ export function ProductDetail() {
     );
   }
 
-  const bgColor = imageColors[product.image] || '#9CA3AF';
-  const relatedProducts = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  const bgColor = imageColors[product.name.toLowerCase()] || '#9CA3AF';
 
   const handleQuantityChange = (delta: number) => {
     setQuantity((prev) => Math.max(1, Math.min(product.stock, prev + delta)));
@@ -74,40 +108,56 @@ export function ProductDetail() {
           {/* Imágenes */}
           <div>
             <div
-              className="rounded-xl mb-4 flex items-center justify-center"
+              className="rounded-xl mb-4 flex items-center justify-center overflow-hidden"
               style={{ backgroundColor: bgColor, height: '400px' }}
             >
-              <svg
-                width="120"
-                height="120"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth="1.5"
-                opacity="0.5"
-              >
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <path d="M21 15l-5-5L5 21" />
-              </svg>
+              {product.image ? (
+                <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+              ) : (
+                <svg
+                  width="120"
+                  height="120"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="1.5"
+                  opacity="0.5"
+                >
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <path d="M21 15l-5-5L5 21" />
+                </svg>
+              )}
             </div>
 
             {/* Miniaturas */}
             <div className="grid grid-cols-4 gap-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="rounded-lg cursor-pointer border-2 border-transparent hover:border-[#2563EB] transition-colors"
-                  style={{ backgroundColor: bgColor, height: '80px' }}
-                />
-              ))}
+              {product.images && product.images.length > 0 ? (
+                product.images.map((img) => (
+                  <div
+                    key={img.id}
+                    className="rounded-lg cursor-pointer border-2 border-transparent hover:border-[#2563EB] transition-colors overflow-hidden"
+                    style={{ height: '80px' }}
+                  >
+                    <img src={img.image} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ))
+              ) : (
+                [1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="rounded-lg cursor-pointer border-2 border-transparent hover:border-[#2563EB] transition-colors"
+                    style={{ backgroundColor: bgColor, height: '80px' }}
+                  />
+                ))
+              )}
             </div>
           </div>
 
           {/* Información */}
           <div>
             <div className="inline-block px-3 py-1 bg-[#2563EB] bg-opacity-10 text-[#2563EB] rounded-full text-sm mb-3" style={{ fontWeight: '500' }}>
-              {product.category}
+              {product.category_name || product.category}
             </div>
 
             <h1 className="text-[#111827] mb-3" style={{ fontSize: '28px', fontWeight: '700' }}>
@@ -115,28 +165,20 @@ export function ProductDetail() {
             </h1>
 
             <div className="flex items-center gap-2 mb-4">
-              <StarRating rating={product.rating} readOnly showNumber />
+              <StarRating rating={product.average_rating || 0} readOnly showNumber />
               <span className="text-[#6B7280] text-sm">
-                ({product.reviews} reseñas)
+                ({productReviews.length} reseñas)
               </span>
             </div>
-
-            <p className="text-[#2563EB] mb-4" style={{ fontSize: '32px', fontWeight: '700' }}>
-              ${product.price.toFixed(2)}
-            </p>
-
-            <p className="text-[#111827] mb-6 leading-relaxed">
-              {product.description}
-            </p>
 
             <div className="bg-white rounded-lg p-4 mb-6">
               <p className="text-[#6B7280] text-sm mb-2">Vendedor</p>
               <div className="flex items-center gap-2">
                 <p className="text-[#111827]" style={{ fontWeight: '500' }}>
-                  {product.sellerName}
+                  {product.seller_name || 'Cargando...'}
                 </p>
                 <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs" style={{ fontWeight: '500' }}>
-                  Vendedor
+                  Vendedor #{product.seller_id}
                 </span>
               </div>
             </div>

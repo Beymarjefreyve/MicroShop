@@ -1,4 +1,5 @@
 export const API_CONFIG = {
-  AUTH_URL: import.meta.env.VITE_AUTH_API_URL || 'https://microservicio-1-auth-service.onrender.com',
-  NOTIFICATION_URL: import.meta.env.VITE_NOTIFICATION_API_URL || 'https://microservicio-7-notification-service.onrender.com',
+  AUTH_URL: import.meta.env.VITE_AUTH_API_URL || 'http://localhost:8001',
+  NOTIFICATION_URL: import.meta.env.VITE_NOTIFICATION_API_URL || 'http://localhost:8007',
+  CATALOG_URL: import.meta.env.VITE_CATALOG_URL || 'http://localhost:8002/api',
 };

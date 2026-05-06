@@ -1,4 +1,6 @@
-const API_URL = import.meta.env.VITE_CATALOG_URL || 'http://localhost:8002/api';
+import { API_CONFIG } from '@/config/api';
+
+const API_URL = API_CONFIG.CATALOG_URL;
 
 export interface Product {
   id: number;
@@ -40,10 +42,16 @@ export const catalogService = {
     const queryString = params ? '?' + new URLSearchParams(params).toString() : '';
     const response = await fetch(`${API_URL}/products/${queryString}`);
     if (!response.ok) throw new Error('Failed to fetch products');
+    
     const data = await response.json();
-    data.results = data.results.map((p: any) => ({
+    
+    // Handle both paginated ({results: [...]}) and non-paginated ([...]) responses
+    const results = Array.isArray(data) ? data : (data.results || []);
+    const count = Array.isArray(data) ? data.length : (data.count || results.length);
+    
+    const processedResults = results.map((p: any) => ({
       ...p,
-      price: parseFloat(p.price),
+      price: typeof p.price === 'string' ? parseFloat(p.price) : p.price,
       images: p.images ? p.images.map((img: any) => ({
         ...img,
         image: img.image && !img.image.startsWith('http') 
@@ -56,13 +64,29 @@ export const catalogService = {
           ? `${API_URL.replace('/api', '')}${p.images[0].image}`
           : p.images?.[0]?.image))
     }));
-    return data;
+
+    return {
+      count: count,
+      next: data.next || null,
+      previous: data.previous || null,
+      results: processedResults
+    };
   },
 
   async getCategories(): Promise<PaginatedResponse<Category>> {
     const response = await fetch(`${API_URL}/categories/`);
     if (!response.ok) throw new Error('Failed to fetch categories');
-    return response.json();
+    const data = await response.json();
+    
+    const results = Array.isArray(data) ? data : (data.results || []);
+    const count = Array.isArray(data) ? data.length : (data.count || results.length);
+
+    return {
+      count: count,
+      next: data.next || null,
+      previous: data.previous || null,
+      results: results
+    };
   },
 
   async getProductById(id: number): Promise<Product> {

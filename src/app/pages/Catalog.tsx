@@ -1,17 +1,34 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Navbar } from '../components/shared/Navbar';
 import { SearchBar } from '../components/catalog/SearchBar';
 import { FilterSidebar } from '../components/catalog/FilterSidebar';
 import { ProductCard } from '../components/catalog/ProductCard';
-import { products } from '../data/products';
+import { catalogService, Product } from '../services/catalogService';
 
 export function Catalog() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 500]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
   const [selectedRating, setSelectedRating] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setIsLoading(true);
+      try {
+        const data = await catalogService.getProducts();
+        setProducts(data.results);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchProducts();
+  }, []);
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategories((prev) =>
@@ -24,7 +41,7 @@ export function Catalog() {
 
   const handleClearFilters = () => {
     setSelectedCategories([]);
-    setPriceRange([0, 500]);
+    setPriceRange([0, 5000]);
     setSelectedRating(0);
     setSearchQuery('');
     setCurrentPage(1);
@@ -39,13 +56,13 @@ export function Catalog() {
     return products.filter((product) => {
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            product.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(product.category);
+      const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(product.category.toString());
       const matchesPrice = product.price >= priceRange[0] && product.price <= priceRange[1];
-      const matchesRating = product.rating >= selectedRating;
+      const matchesRating = (product.average_rating || 0) >= selectedRating;
 
       return matchesSearch && matchesCategory && matchesPrice && matchesRating;
     });
-  }, [searchQuery, selectedCategories, priceRange, selectedRating]);
+  }, [products, searchQuery, selectedCategories, priceRange, selectedRating]);
 
   const recommendedProducts = products.slice(0, 5);
 
