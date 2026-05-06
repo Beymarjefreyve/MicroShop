@@ -46,6 +46,7 @@ export function Checkout() {
 
   const handleContinue = () => {
     if (validateForm()) {
+      localStorage.setItem('checkout_address', JSON.stringify(formData));
       navigate('/checkout/payment');
     }
   };

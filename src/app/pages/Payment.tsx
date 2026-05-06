@@ -6,10 +6,12 @@ import { OrderSummary } from '../components/cart/OrderSummary';
 import { PaymentMethodCard } from '../components/cart/PaymentMethodCard';
 import { CreditCardPreview } from '../components/cart/CreditCardPreview';
 import { useCart } from '../hooks/useCart';
+import { orderService } from '../services/orderService';
+import authService from '../services/authService';
 
 export function Payment() {
   const navigate = useNavigate();
-  const { state } = useCart();
+  const { state, clearCart } = useCart();
   const [paymentMethod, setPaymentMethod] = useState<'nequi' | 'card'>('card');
   const [loading, setLoading] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
@@ -50,9 +52,38 @@ export function Payment() {
   };
 
   const handlePayment = async () => {
+    const user = authService.getUser();
+    if (!user || !user.id) {
+      alert('Debes iniciar sesión para realizar el pedido');
+      return;
+    }
+
+    const addressData = localStorage.getItem('checkout_address');
+    const address = addressData ? JSON.parse(addressData) : {};
+
     setLoading(true);
-    // Simulate payment processing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      await orderService.createOrder({
+        user_id: user.id,
+        total_amount: total,
+        shipping_address: `${address.fullName}, ${address.address}, ${address.city}, ${address.state} CP: ${address.zipCode}. Tel: ${address.phone}`,
+        items: state.items.map(item => ({
+          product_id: item.product_id,
+          product_name: item.name,
+          quantity: item.quantity,
+          price_at_purchase: item.price
+        }))
+      });
+      
+      await clearCart();
+      localStorage.removeItem('checkout_address');
+    } catch (e: any) {
+      console.error('Error creating order:', e);
+      alert('Hubo un error al procesar el pedido. Por favor intente de nuevo.');
+      setLoading(false);
+      return;
+    }
+
     setLoading(false);
     navigate('/checkout/confirmation');
   };

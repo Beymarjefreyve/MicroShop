@@ -1,21 +1,64 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
 import { Navbar } from '../components/shared/Navbar';
 import { OrderStatusBadge } from '../components/orders/OrderStatusBadge';
 import { OrderTimeline } from '../components/orders/OrderTimeline';
 import { CancelModal } from '../components/orders/CancelModal';
 import { Toast } from '../components/orders/Toast';
-import { mockOrders } from '../data/orders';
+import { orderService } from '../services/orderService';
 import { useCart } from '../hooks/useCart';
 
 export function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { addItem } = useCart();
-  const [order, setOrder] = useState(mockOrders.find((o) => o.id === id));
+  const [order, setOrder] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+
+  const fetchOrder = async () => {
+    if (!id) return;
+    try {
+      setLoading(true);
+      const data = await orderService.getOrderById(Number(id));
+      const mappedOrder = {
+        id: data.id.toString(),
+        date: data.created_at,
+        estimatedDeliveryDate: data.estimated_delivery_date,
+        status: data.status.toLowerCase(),
+        total: Number(data.total_amount),
+        shippingAddress: {
+          name: 'Usuario',
+          address: data.shipping_address,
+          city: '',
+          phone: ''
+        },
+        paymentMethod: 'Tarjeta',
+        items: data.items.map((i: any) => ({
+          name: i.product_name,
+          quantity: i.quantity,
+          price: Number(i.price_at_purchase),
+          image: 'package'
+        })),
+        timeline: data.history.map((h: any) => ({
+          status: h.status.toLowerCase(),
+          date: h.changed_at,
+          done: true
+        }))
+      };
+      setOrder(mappedOrder);
+    } catch (e) {
+      console.error('Error fetching order detail:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrder();
+  }, [id]);
 
   if (!order) {
     return (
@@ -51,10 +94,18 @@ export function OrderDetail() {
   const tax = subtotal * 0.19;
   const total = subtotal + shipping + tax;
 
-  const handleCancelConfirm = () => {
-    setOrder({ ...order, status: 'cancelado' });
-    setToastMessage('Pedido cancelado correctamente');
-    setToastVisible(true);
+  const handleCancelConfirm = async () => {
+    if (order) {
+      try {
+        await orderService.cancelOrder(Number(order.id));
+        setToastMessage('Pedido cancelado correctamente');
+        setToastVisible(true);
+        await fetchOrder();
+      } catch (e: any) {
+        setToastMessage(e.message || 'No se pudo cancelar el pedido');
+        setToastVisible(true);
+      }
+    }
     setCancelModalOpen(false);
   };
 
@@ -122,6 +173,11 @@ export function OrderDetail() {
                   </>
                 )}
               </div>
+              {order.estimatedDeliveryDate && (
+                <p className="mt-2 text-[#2563EB]" style={{ fontSize: '14px', fontWeight: '600' }}>
+                  🚚 Entrega estimada: {formatDate(order.estimatedDeliveryDate)}
+                </p>
+              )}
             </div>
             <OrderStatusBadge status={order.status} />
           </div>

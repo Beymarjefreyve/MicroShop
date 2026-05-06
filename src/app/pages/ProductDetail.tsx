@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useContext, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { Navbar } from '../components/shared/Navbar';
 import { StarRating } from '../components/catalog/StarRating';
 import { ProductCard } from '../components/catalog/ProductCard';
+import { CartContext } from '../context/CartContext';
 import { catalogService, Product } from '../services/catalogService';
 
 const imageColors: Record<string, string> = {
@@ -23,6 +24,7 @@ const imageColors: Record<string, string> = {
 export function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const cartContext = useContext(CartContext);
   
   const [product, setProduct] = useState<Product | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
@@ -222,7 +224,11 @@ export function ProductDetail() {
                 disabled={product.stock === 0}
                 className="w-full py-3 bg-[#2563EB] text-white rounded-lg hover:bg-[#1D4ED8] disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-200"
                 style={{ fontSize: '16px', fontWeight: '600' }}
-                onClick={() => alert('Producto agregado al carrito')}
+                onClick={() => {
+                  if (cartContext) {
+                    cartContext.addItem(product, quantity);
+                  }
+                }}
               >
                 {product.stock === 0 ? 'Sin stock' : 'Agregar al carrito'}
               </button>

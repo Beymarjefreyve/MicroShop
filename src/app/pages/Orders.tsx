@@ -1,22 +1,54 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Navbar } from '../components/shared/Navbar';
 import { OrderCard } from '../components/orders/OrderCard';
 import { OrderFilters } from '../components/orders/OrderFilters';
 import { CancelModal } from '../components/orders/CancelModal';
 import { Toast } from '../components/orders/Toast';
-import { mockOrders } from '../data/orders';
+import { orderService } from '../services/orderService';
+import authService from '../services/authService';
 
 export function Orders() {
-  const [orders, setOrders] = useState(mockOrders);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState('todos');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
-  const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
+  const [orderToCancel, setOrderToCancel] = useState<number | null>(null);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+
+  const fetchOrders = async () => {
+    const user = authService.getUser();
+    if (!user || !user.id) return;
+
+    try {
+      setLoading(true);
+      const data = await orderService.getOrders(user.id);
+      const mappedOrders = data.map((o: any) => ({
+        id: o.id.toString(),
+        date: o.created_at.split('T')[0],
+        status: o.status.toLowerCase(),
+        total: Number(o.total_amount),
+        items: o.items.map((i: any) => ({
+          name: i.product_name,
+          quantity: i.quantity,
+          price: Number(i.price_at_purchase)
+        }))
+      }));
+      setOrders(mappedOrders);
+    } catch (e) {
+      console.error('Error fetching orders:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
 
   // Filter orders
   const filteredOrders = useMemo(() => {
@@ -53,19 +85,21 @@ export function Orders() {
   };
 
   const handleCancelClick = (orderId: string) => {
-    setOrderToCancel(orderId);
+    setOrderToCancel(Number(orderId));
     setCancelModalOpen(true);
   };
 
-  const handleCancelConfirm = () => {
+  const handleCancelConfirm = async () => {
     if (orderToCancel) {
-      setOrders((prevOrders) =>
-        prevOrders.map((order) =>
-          order.id === orderToCancel ? { ...order, status: 'cancelado' as const } : order
-        )
-      );
-      setToastMessage('Pedido cancelado correctamente');
-      setToastVisible(true);
+      try {
+        await orderService.cancelOrder(orderToCancel);
+        setToastMessage('Pedido cancelado correctamente');
+        setToastVisible(true);
+        await fetchOrders();
+      } catch (e: any) {
+        setToastMessage(e.message || 'No se pudo cancelar el pedido');
+        setToastVisible(true);
+      }
     }
     setCancelModalOpen(false);
     setOrderToCancel(null);

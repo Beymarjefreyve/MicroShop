@@ -1,7 +1,10 @@
-import { createContext, useReducer, ReactNode, useEffect } from 'react';
+import { createContext, useReducer, ReactNode, useEffect, useCallback } from 'react';
+import { cartService } from '../services/cartService';
+import authService from '../services/authService';
 
 export interface CartItem {
-  id: number;
+  id: number; // Item ID in cart-service
+  product_id: number;
   name: string;
   price: number;
   quantity: number;
@@ -11,22 +14,20 @@ export interface CartItem {
 
 interface CartState {
   items: CartItem[];
+  loading: boolean;
 }
 
 type CartAction =
-  | { type: 'ADD_ITEM'; payload: CartItem }
-  | { type: 'REMOVE_ITEM'; payload: number }
-  | { type: 'UPDATE_QUANTITY'; payload: { id: number; quantity: number } }
-  | { type: 'CLEAR_CART' }
-  | { type: 'LOAD_CART'; payload: CartItem[] };
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'LOAD_CART'; payload: CartItem[] }
+  | { type: 'CLEAR_CART' };
 
 interface CartContextType {
   state: CartState;
-  dispatch: React.Dispatch<CartAction>;
-  addItem: (item: CartItem) => void;
-  removeItem: (id: number) => void;
-  updateQuantity: (id: number, quantity: number) => void;
-  clearCart: () => void;
+  addItem: (product: any, quantity?: number) => Promise<void>;
+  removeItem: (itemId: number) => Promise<void>;
+  updateQuantity: (itemId: number, quantity: number) => Promise<void>;
+  clearCart: () => Promise<void>;
   getTotalItems: () => number;
   getSubtotal: () => number;
 }
@@ -35,118 +36,101 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
-    case 'ADD_ITEM': {
-      const existingItem = state.items.find(item => item.id === action.payload.id);
-      if (existingItem) {
-        return {
-          ...state,
-          items: state.items.map(item =>
-            item.id === action.payload.id
-              ? { ...item, quantity: item.quantity + action.payload.quantity }
-              : item
-          ),
-        };
-      }
-      return {
-        ...state,
-        items: [...state.items, action.payload],
-      };
-    }
-    case 'REMOVE_ITEM':
-      return {
-        ...state,
-        items: state.items.filter(item => item.id !== action.payload),
-      };
-    case 'UPDATE_QUANTITY':
-      return {
-        ...state,
-        items: state.items.map(item =>
-          item.id === action.payload.id
-            ? { ...item, quantity: action.payload.quantity }
-            : item
-        ),
-      };
-    case 'CLEAR_CART':
-      return {
-        ...state,
-        items: [],
-      };
+    case 'SET_LOADING':
+      return { ...state, loading: action.payload };
     case 'LOAD_CART':
-      return {
-        ...state,
-        items: action.payload,
-      };
+      return { ...state, items: action.payload, loading: false };
+    case 'CLEAR_CART':
+      return { ...state, items: [], loading: false };
     default:
       return state;
   }
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(cartReducer, { items: [] });
+  const [state, dispatch] = useReducer(cartReducer, { items: [], loading: false });
 
-  // Load cart from localStorage on mount
-  useEffect(() => {
-    const savedCart = localStorage.getItem('microshop_cart');
-    if (savedCart) {
-      try {
-        const items = JSON.parse(savedCart);
-        dispatch({ type: 'LOAD_CART', payload: items });
-      } catch (e) {
-        console.error('Error loading cart from localStorage:', e);
-      }
-    } else {
-      // Initialize with 3 mock products if cart is empty
-      const mockItems: CartItem[] = [
-        {
-          id: 1,
-          name: 'Laptop HP Pavilion 15',
-          price: 459.99,
-          quantity: 1,
-          image: 'laptop',
-          category: 'Electrónica',
-        },
-        {
-          id: 5,
-          name: 'Audífonos Sony WH-1000XM4',
-          price: 299.99,
-          quantity: 2,
-          image: 'headphones',
-          category: 'Electrónica',
-        },
-        {
-          id: 9,
-          name: 'Mouse inalámbrico Logitech MX Master 3',
-          price: 89.99,
-          quantity: 1,
-          image: 'mouse',
-          category: 'Electrónica',
-        },
-      ];
-      dispatch({ type: 'LOAD_CART', payload: mockItems });
+  const fetchCart = useCallback(async () => {
+    const user = authService.getUser();
+    if (!user || !user.id) return;
+
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      const cart = await cartService.getCart(user.id);
+      const mappedItems: CartItem[] = cart.items.map(item => ({
+        id: item.id,
+        product_id: item.product_id,
+        name: item.product_name,
+        price: Number(item.price_at_addition),
+        quantity: item.quantity,
+        image: 'default', // Ideally backend returns image too
+        category: 'General'
+      }));
+      dispatch({ type: 'LOAD_CART', payload: mappedItems });
+    } catch (e) {
+      console.error('Error fetching cart:', e);
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
   }, []);
 
-  // Save cart to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('microshop_cart', JSON.stringify(state.items));
-  }, [state.items]);
+    fetchCart();
+  }, [fetchCart]);
 
-  const addItem = (item: CartItem) => {
-    dispatch({ type: 'ADD_ITEM', payload: item });
-  };
+  const addItem = async (product: any, quantity: number = 1) => {
+    const user = authService.getUser();
+    if (!user || !user.id) {
+      alert('Debes iniciar sesión para agregar al carrito');
+      return;
+    }
 
-  const removeItem = (id: number) => {
-    dispatch({ type: 'REMOVE_ITEM', payload: id });
-  };
-
-  const updateQuantity = (id: number, quantity: number) => {
-    if (quantity >= 1) {
-      dispatch({ type: 'UPDATE_QUANTITY', payload: { id, quantity } });
+    try {
+      await cartService.addItem(user.id, {
+        id: product.id,
+        name: product.name,
+        price: product.price
+      }, quantity);
+      await fetchCart();
+    } catch (e) {
+      console.error('Error adding item:', e);
     }
   };
 
-  const clearCart = () => {
-    dispatch({ type: 'CLEAR_CART' });
+  const removeItem = async (itemId: number) => {
+    const user = authService.getUser();
+    if (!user || !user.id) return;
+
+    try {
+      await cartService.removeItem(user.id, itemId);
+      await fetchCart();
+    } catch (e) {
+      console.error('Error removing item:', e);
+    }
+  };
+
+  const updateQuantity = async (itemId: number, quantity: number) => {
+    const user = authService.getUser();
+    if (!user || !user.id || quantity < 1) return;
+
+    try {
+      await cartService.updateQuantity(user.id, itemId, quantity);
+      await fetchCart();
+    } catch (e) {
+      console.error('Error updating quantity:', e);
+    }
+  };
+
+  const clearCart = async () => {
+    const user = authService.getUser();
+    if (!user || !user.id) return;
+
+    try {
+      await cartService.clearCart(user.id);
+      dispatch({ type: 'CLEAR_CART' });
+    } catch (e) {
+      console.error('Error clearing cart:', e);
+    }
   };
 
   const getTotalItems = () => {
@@ -159,7 +143,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const value = {
     state,
-    dispatch,
     addItem,
     removeItem,
     updateQuantity,
