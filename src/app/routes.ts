@@ -20,6 +20,7 @@ import { AdminIncidents } from './pages/AdminIncidents';
 import { AdminInventory } from './pages/AdminInventory';
 import { VerifyEmail } from './pages/VerifyEmail';
 import { ResetPassword } from './pages/ResetPassword';
+import { SelectRole } from './pages/SelectRole';
 
 export const router = createBrowserRouter([
   {
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
       { index: true, Component: Login },
       { path: 'register', Component: Register },
       { path: 'login', Component: Login },
+      { path: 'select-role', Component: SelectRole },
       { path: 'forgot-password', Component: ForgotPassword },
       { path: 'verify-email', Component: VerifyEmail },
       { path: 'reset-password', Component: ResetPassword },

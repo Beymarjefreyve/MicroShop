@@ -56,7 +56,10 @@ export function Login() {
       authService.saveAuthData(data.token, data.user);
       
       const roles = data.user?.roles || [];
-      if (roles.includes('ADMIN')) {
+      
+      if (roles.length > 1) {
+        navigate('/select-role');
+      } else if (roles.includes('ADMIN')) {
         navigate('/admin/dashboard');
       } else if (roles.includes('SELLER')) {
         navigate('/seller/products');

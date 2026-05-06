@@ -14,7 +14,16 @@ const authService = {
     if (!response.ok) {
       throw new Error(data.message || 'Error en el inicio de sesión');
     }
-    return data;
+    
+    // Normalize response to include 'user' object if it's missing (backend returns top-level fields)
+    return {
+      token: data.token,
+      user: data.user || {
+        name: data.name,
+        email: data.email,
+        roles: data.roles
+      }
+    };
   },
 
   async register(formData: any, roles: string[]): Promise<any> {
