@@ -1,4 +1,4 @@
-import { AdminOrder } from '../../data/adminOrders';
+import { AdminOrder } from '../../types/order';
 
 interface OrderDrawerProps {
   order: AdminOrder | null;

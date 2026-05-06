@@ -200,6 +200,11 @@ const authService = {
     return localStorage.getItem('token');
   },
 
+  getUser(): any {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user) : null;
+  },
+
   isAuthenticated(): boolean {
     return localStorage.getItem('isAuthenticated') === 'true';
   }

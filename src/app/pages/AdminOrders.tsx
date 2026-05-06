@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminLayout } from '../components/admin/AdminLayout';
 import { AdminTable } from '../components/admin/AdminTable';
 import { OrderDrawer } from '../components/admin/OrderDrawer';
-import { adminOrders, AdminOrder } from '../data/adminOrders';
+import { orderService } from '../services/orderService';
+
+import { AdminOrder } from '../types/order';
 
 export function AdminOrders() {
-  const [orders] = useState<AdminOrder[]>(adminOrders);
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('Todos');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -14,10 +17,48 @@ export function AdminOrders() {
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [showDrawer, setShowDrawer] = useState(false);
 
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const data = await orderService.getAllOrders();
+      const mappedOrders = data.map((o: any) => ({
+        id: o.id.toString(),
+        userName: `User ${o.user_id}`, // In a real app, join with auth-service or include name in payload
+        userEmail: `user${o.user_id}@example.com`,
+        total: Number(o.total_amount),
+        status: o.status.toLowerCase() === 'procesando' ? 'en proceso' : o.status.toLowerCase(),
+        date: o.created_at,
+        estimatedDeliveryDate: o.estimated_delivery_date,
+        shippingAddress: {
+          name: `User ${o.user_id}`,
+          address: o.shipping_address,
+          city: 'Ciudad',
+          phone: '000-000-0000'
+        },
+        paymentMethod: 'Tarjeta', // Mocked as order-service doesn't store this yet
+        items: o.items.map((i: any) => ({
+          name: i.product_name,
+          quantity: i.quantity,
+          price: Number(i.price_at_purchase)
+        }))
+      }));
+      setOrders(mappedOrders);
+    } catch (e) {
+      console.error('Error fetching admin orders:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
   const filteredOrders = orders.filter((order) => {
     const matchesStatus = statusFilter === 'Todos' || order.status === statusFilter;
-    const matchesDateFrom = !dateFrom || order.date >= dateFrom;
-    const matchesDateTo = !dateTo || order.date <= dateTo;
+    const orderDate = order.date.split('T')[0];
+    const matchesDateFrom = !dateFrom || orderDate >= dateFrom;
+    const matchesDateTo = !dateTo || orderDate <= dateTo;
     const matchesBuyer = !buyerFilter || 
       order.userName.toLowerCase().includes(buyerFilter.toLowerCase()) ||
       order.userEmail.toLowerCase().includes(buyerFilter.toLowerCase());
@@ -51,7 +92,7 @@ export function AdminOrders() {
     link.click();
   };
 
-  const handleRowClick = (order: AdminOrder) => {
+  const handleRowClick = (order: any) => {
     setSelectedOrder(order);
     setShowDrawer(true);
   };
@@ -81,9 +122,9 @@ export function AdminOrders() {
     },
     {
       header: 'Productos',
-      accessor: (row: AdminOrder) => (
-        <div className="truncate max-w-[200px]" title={row.items.map(i => i.name).join(', ')}>
-          {row.items.map(i => i.name).join(', ')}
+      accessor: (row: any) => (
+        <div className="truncate max-w-[200px]" title={row.items.map((i: any) => i.name).join(', ')}>
+          {row.items.map((i: any) => i.name).join(', ')}
         </div>
       ),
       width: '20%'
