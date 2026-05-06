@@ -38,6 +38,7 @@ export function Confirmation() {
     return () => {
       if (window.location.pathname !== '/checkout/confirmation') {
         clearCart();
+        localStorage.removeItem('checkout_address');
       }
     };
   }, [clearCart]);
@@ -86,7 +87,19 @@ export function Confirmation() {
                 <span className="text-[#111827]">Tarjeta de crédito</span>
               </div>
               <div className="flex justify-between pt-3 border-t border-[#E5E7EB]">
-                <span className="text-[#111827] font-semibold">Total pagado</span>
+                <span className="text-[#6B7280]">Dirección de envío</span>
+                <span className="text-[#111827] text-right max-w-[200px]">
+                  {localStorage.getItem('checkout_address') ? JSON.parse(localStorage.getItem('checkout_address')!).address : 'Dirección guardada'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#6B7280]">Entrega estimada</span>
+                <span className="text-[#2563EB] font-semibold">
+                  3-5 días hábiles
+                </span>
+              </div>
+              <div className="flex justify-between pt-3 border-t border-[#E5E7EB]">
+                <span className="text-[#111827] font-semibold">Total pagado (inc. impuestos)</span>
                 <span className="text-[#111827] text-xl font-bold">
                   ${total.toFixed(2)}
                 </span>

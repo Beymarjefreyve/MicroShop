@@ -1,5 +1,7 @@
 import { Link } from 'react-router';
+import { useContext, useState } from 'react';
 import { StarRating } from './StarRating';
+import { CartContext } from '../../context/CartContext';
 
 interface ProductCardProps {
   id: number;
@@ -26,6 +28,8 @@ const imageColors: Record<string, string> = {
 };
 
 export function ProductCard({ id, name, price, rating, stock, image }: ProductCardProps) {
+  const cartContext = useContext(CartContext);
+  const [isAdding, setIsAdding] = useState(false);
   const isOutOfStock = stock === 0;
   
   // If image is a URL, use it; otherwise use color placeholder
@@ -90,21 +94,25 @@ export function ProductCard({ id, name, price, rating, stock, image }: ProductCa
             </p>
 
             <button
-              disabled={isOutOfStock}
-              className={`w-full py-2 rounded-lg transition-colors ${
+              disabled={isOutOfStock || isAdding}
+              className={`w-full py-2 rounded-lg transition-all ${
                 isOutOfStock
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-[#2563EB] text-white hover:bg-[#1D4ED8]'
+                  : isAdding
+                    ? 'bg-green-500 scale-95 text-white'
+                    : 'bg-[#2563EB] text-white hover:bg-[#1D4ED8]'
               }`}
               style={{ fontSize: '14px', fontWeight: '500' }}
               onClick={(e) => {
                 e.preventDefault();
-                if (!isOutOfStock) {
-                  alert('Producto agregado al carrito');
+                if (!isOutOfStock && cartContext) {
+                  setIsAdding(true);
+                  cartContext.addItem({ id, name, price, rating, stock, image });
+                  setTimeout(() => setIsAdding(false), 300);
                 }
               }}
             >
-              {isOutOfStock ? 'Sin stock' : 'Agregar al carrito'}
+              {isOutOfStock ? 'Sin stock' : isAdding ? '¡Agregado!' : 'Agregar al carrito'}
             </button>
           </div>
         </div>

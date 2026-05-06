@@ -13,6 +13,7 @@ interface ProductFormProps {
     price: number;
     category: number | string;
     stock: number;
+    images?: { id: number; image: string }[];
   };
 }
 
@@ -22,6 +23,9 @@ export function ProductForm({ mode, productId, initialData }: ProductFormProps) 
   const [success, setSuccess] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [apiError, setApiError] = useState<string | null>(null);
+  
+  const [existingImages, setExistingImages] = useState<{id: number, image: string}[]>(initialData?.images || []);
+  const [newImages, setNewImages] = useState<File[]>([]);
 
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
@@ -93,12 +97,19 @@ export function ProductForm({ mode, productId, initialData }: ProductFormProps) 
 
     try {
       const user = authService.getUser();
-      const payload = {
-        ...formData,
-        seller: user?.id,
-        // Backend usually expects category ID
-        category: typeof formData.category === 'string' ? parseInt(formData.category) : formData.category
-      };
+      const payload = new FormData();
+      payload.append('name', formData.name);
+      payload.append('description', formData.description);
+      payload.append('price', formData.price.toString());
+      payload.append('stock', formData.stock.toString());
+      payload.append('category', typeof formData.category === 'string' ? formData.category : formData.category.toString());
+      if (user?.id) {
+        payload.append('seller_id', user.id.toString());
+      }
+      
+      newImages.forEach(file => {
+        payload.append('images', file);
+      });
 
       if (mode === 'create') {
         await catalogService.createProduct(payload);
@@ -229,17 +240,73 @@ export function ProductForm({ mode, productId, initialData }: ProductFormProps) 
           {errors.category && <p className="text-red-600 text-xs mt-1">{errors.category}</p>}
         </div>
 
-        {/* Imágenes (Simplified for now) */}
+        {/* Imágenes */}
         <div>
           <label className="block text-[#111827] mb-2 font-medium" style={{ fontSize: '14px' }}>
-            Imágenes
+            Imágenes (Máximo 4)
           </label>
-          <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-[#2563EB] transition-colors cursor-pointer bg-gray-50/50">
-            <svg className="mx-auto mb-3 w-10 h-10 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <p className="text-gray-500 text-sm">Funcionalidad de subida próximamente</p>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            {existingImages.map((img) => (
+              <div key={`exist-${img.id}`} className="relative h-24 border rounded-lg overflow-hidden group">
+                <img src={img.image} alt="Producto" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={async () => {
+                    try {
+                      if (productId) {
+                        await catalogService.deleteProductImage(productId, img.id);
+                        setExistingImages(prev => prev.filter(i => i.id !== img.id));
+                      }
+                    } catch (e) {
+                      console.error(e);
+                      alert('Error eliminando imagen');
+                    }
+                  }}
+                >
+                  Eliminar
+                </button>
+              </div>
+            ))}
+            {newImages.map((file, i) => (
+              <div key={`new-${i}`} className="relative h-24 border rounded-lg overflow-hidden group">
+                <img src={URL.createObjectURL(file)} alt="Nueva" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => {
+                    setNewImages(prev => prev.filter((_, idx) => idx !== i));
+                  }}
+                >
+                  Quitar
+                </button>
+              </div>
+            ))}
           </div>
+
+          {(existingImages.length + newImages.length) < 4 && (
+            <div className="relative border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-[#2563EB] transition-colors cursor-pointer bg-gray-50/50">
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                onChange={(e) => {
+                  if (e.target.files) {
+                    const files = Array.from(e.target.files);
+                    const slotsAvailable = 4 - (existingImages.length + newImages.length);
+                    const filesToAdd = files.slice(0, slotsAvailable);
+                    setNewImages(prev => [...prev, ...filesToAdd]);
+                  }
+                }}
+              />
+              <svg className="mx-auto mb-3 w-10 h-10 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <p className="text-gray-500 text-sm">Click para subir o arrastra imágenes aquí</p>
+            </div>
+          )}
         </div>
       </div>
 

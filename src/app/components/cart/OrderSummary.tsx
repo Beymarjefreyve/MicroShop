@@ -1,14 +1,14 @@
 interface OrderSummaryProps {
   subtotal: number;
   onCheckout?: () => void;
-  onContinueShopping?: () => void;
+  onViewOrders?: () => void;
   showActions?: boolean;
 }
 
 export function OrderSummary({
   subtotal,
   onCheckout,
-  onContinueShopping,
+  onViewOrders,
   showActions = true,
 }: OrderSummaryProps) {
   const shipping = subtotal > 100 ? 0 : 5.0;
@@ -52,17 +52,23 @@ export function OrderSummary({
           {onCheckout && (
             <button
               onClick={onCheckout}
-              className="w-full bg-[#2563EB] text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              className="w-full bg-[#2563EB] text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
             >
-              Proceder al pago
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Generar orden de compra
             </button>
           )}
-          {onContinueShopping && (
+          {onViewOrders && (
             <button
-              onClick={onContinueShopping}
-              className="w-full border-2 border-[#2563EB] text-[#2563EB] py-3 rounded-lg font-medium hover:bg-blue-50 transition-colors"
+              onClick={onViewOrders}
+              className="w-full border-2 border-[#2563EB] text-[#2563EB] py-3 rounded-lg font-medium hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
             >
-              Seguir comprando
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              Ver mis órdenes
             </button>
           )}
         </div>

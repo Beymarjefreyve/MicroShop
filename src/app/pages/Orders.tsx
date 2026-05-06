@@ -27,7 +27,9 @@ export function Orders() {
     try {
       setLoading(true);
       const data = await orderService.getOrders(user.id);
-      const mappedOrders = data.map((o: any) => ({
+      const mappedOrders = data
+        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .map((o: any) => ({
         id: o.id.toString(),
         date: o.created_at.split('T')[0],
         status: o.status.toLowerCase(),
@@ -203,7 +205,7 @@ export function Orders() {
         isOpen={cancelModalOpen}
         onClose={() => setCancelModalOpen(false)}
         onConfirm={handleCancelConfirm}
-        orderId={orderToCancel || ''}
+        orderId={orderToCancel ? orderToCancel.toString() : ''}
       />
       <Toast
         message={toastMessage}

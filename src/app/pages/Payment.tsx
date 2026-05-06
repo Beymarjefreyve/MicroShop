@@ -1,20 +1,36 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router';
 import { Navbar } from '../components/shared/Navbar';
-import { CheckoutStepper } from '../components/cart/CheckoutStepper';
 import { OrderSummary } from '../components/cart/OrderSummary';
 import { PaymentMethodCard } from '../components/cart/PaymentMethodCard';
 import { CreditCardPreview } from '../components/cart/CreditCardPreview';
-import { useCart } from '../hooks/useCart';
 import { orderService } from '../services/orderService';
 import authService from '../services/authService';
 
 export function Payment() {
+  const { id } = useParams();
   const navigate = useNavigate();
-  const { state, clearCart } = useCart();
+  const [order, setOrder] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<'nequi' | 'card'>('card');
   const [loading, setLoading] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
+
+  useEffect(() => {
+    if (!id) {
+      navigate('/orders');
+      return;
+    }
+    const fetchOrder = async () => {
+      try {
+        const data = await orderService.getOrderById(Number(id));
+        setOrder(data);
+      } catch (e) {
+        console.error('Error fetching order:', e);
+        navigate('/orders');
+      }
+    };
+    fetchOrder();
+  }, [id, navigate]);
 
   // Nequi form
   const [nequiPhone, setNequiPhone] = useState('');
@@ -53,60 +69,39 @@ export function Payment() {
 
   const handlePayment = async () => {
     const user = authService.getUser();
-    if (!user || !user.id) {
-      alert('Debes iniciar sesión para realizar el pedido');
+    if (!user || !user.id || !id) {
+      alert('Debes iniciar sesión para realizar el pago');
       return;
     }
-
-    const addressData = localStorage.getItem('checkout_address');
-    const address = addressData ? JSON.parse(addressData) : {};
 
     setLoading(true);
     try {
-      await orderService.createOrder({
-        user_id: user.id,
-        total_amount: total,
-        shipping_address: `${address.fullName}, ${address.address}, ${address.city}, ${address.state} CP: ${address.zipCode}. Tel: ${address.phone}`,
-        items: state.items.map(item => ({
-          product_id: item.product_id,
-          product_name: item.name,
-          quantity: item.quantity,
-          price_at_purchase: item.price
-        }))
-      });
-      
-      await clearCart();
-      localStorage.removeItem('checkout_address');
+      await orderService.updateStatus(Number(id), 'PAGADO', 'Pago simulado desde portal', paymentMethod === 'card' ? 'Tarjeta' : 'Nequi');
+      alert('¡Pago exitoso!');
+      navigate('/orders');
     } catch (e: any) {
-      console.error('Error creating order:', e);
-      alert('Hubo un error al procesar el pedido. Por favor intente de nuevo.');
+      console.error('Error procesando pago:', e);
+      alert('Hubo un error al procesar el pago. Por favor intente de nuevo.');
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setLoading(false);
-    navigate('/checkout/confirmation');
   };
 
-  const subtotal = state.items.reduce(
-    (total, item) => total + item.price * item.quantity,
-    0
-  );
-  const shipping = subtotal > 100 ? 0 : 5.0;
-  const tax = subtotal * 0.19;
-  const total = subtotal + shipping + tax;
-
-  if (state.items.length === 0) {
-    navigate('/cart');
-    return null;
+  if (!order) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2563EB]"></div>
+      </div>
+    );
   }
+
+  const subtotal = Number(order.total_amount) - Number(order.tax_amount || 0);
+  const total = Number(order.total_amount);
 
   return (
     <>
       <Navbar />
       <div className="min-h-screen bg-gray-50 pt-16">
-        <CheckoutStepper currentStep={2} />
-
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Payment form */}
@@ -266,11 +261,11 @@ export function Payment() {
               {/* Buttons */}
               <div className="flex gap-4">
                 <button
-                  onClick={() => navigate('/checkout')}
+                  onClick={() => navigate('/orders')}
                   className="flex-1 border-2 border-[#E5E7EB] text-[#6B7280] py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors"
                   disabled={loading}
                 >
-                  Volver
+                  Cancelar
                 </button>
                 <button
                   onClick={handlePayment}

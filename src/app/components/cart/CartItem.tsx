@@ -1,23 +1,41 @@
-import { CartItem as CartItemType } from '../context/CartContext';
+import { CartItem as CartItemType } from '../../context/CartContext';
 
 interface CartItemProps {
   item: CartItemType;
   onUpdateQuantity: (id: number, quantity: number) => void;
   onRemove: (id: number) => void;
+  isSelected?: boolean;
+  onToggleSelect?: (id: number) => void;
 }
 
-export function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
+export function CartItem({ item, onUpdateQuantity, onRemove, isSelected, onToggleSelect }: CartItemProps) {
   const totalPrice = item.price * item.quantity;
 
   return (
-    <div className="flex gap-4 p-4 bg-white border border-[#E5E7EB] rounded-xl">
+    <div className="flex gap-4 p-4 bg-white border border-[#E5E7EB] rounded-xl items-center">
+      {/* Checkbox */}
+      {onToggleSelect && (
+        <div className="flex-shrink-0">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(item.id)}
+            className="w-5 h-5 rounded border-[#E5E7EB] text-[#2563EB] focus:ring-[#2563EB]"
+          />
+        </div>
+      )}
+
       {/* Imagen */}
-      <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-          <circle cx="8.5" cy="8.5" r="1.5" />
-          <polyline points="21 15 16 10 5 21" />
-        </svg>
+      <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+        {item.image && (item.image.startsWith('http') || item.image.startsWith('/media')) ? (
+          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+        ) : (
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+        )}
       </div>
 
       {/* Info del producto */}

@@ -34,6 +34,8 @@ export function ProductDetail() {
   const [userRating, setUserRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [showReviewForm, setShowReviewForm] = useState(true);
+  const [isAdding, setIsAdding] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -87,8 +89,9 @@ export function ProductDetail() {
     );
   }
 
-  const isUrl = product.image && (product.image.startsWith('http') || product.image.startsWith('/media'));
-  const bgColor = !isUrl ? (imageColors[product.image || ''] || '#9CA3AF') : 'transparent';
+  const mainImage = selectedImage || product.image || '';
+  const isUrl = mainImage && (mainImage.startsWith('http') || mainImage.startsWith('/media'));
+  const bgColor = !isUrl ? (imageColors[mainImage || ''] || '#9CA3AF') : 'transparent';
 
   const handleQuantityChange = (delta: number) => {
     setQuantity((prev) => Math.max(1, Math.min(product.stock, prev + delta)));
@@ -117,7 +120,7 @@ export function ProductDetail() {
             >
               {isUrl ? (
                 <img 
-                  src={product.image} 
+                  src={mainImage} 
                   alt={product.name} 
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -139,7 +142,12 @@ export function ProductDetail() {
                 product.images.slice(0, 4).map((img, i) => (
                   <div
                     key={i}
-                    className="rounded-lg cursor-pointer border-2 border-transparent hover:border-[#2563EB] transition-all overflow-hidden"
+                    onClick={() => setSelectedImage(img.image)}
+                    className={`rounded-lg cursor-pointer border-2 transition-all overflow-hidden ${
+                      (selectedImage || product.image) === img.image
+                        ? 'border-[#2563EB] shadow-md'
+                        : 'border-transparent hover:border-[#2563EB]'
+                    }`}
                     style={{ height: '80px' }}
                   >
                     <img src={img.image} alt="" className="w-full h-full object-cover" />
@@ -221,16 +229,24 @@ export function ProductDetail() {
 
             <div className="space-y-3">
               <button
-                disabled={product.stock === 0}
-                className="w-full py-3 bg-[#2563EB] text-white rounded-lg hover:bg-[#1D4ED8] disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-200"
+                disabled={product.stock === 0 || isAdding}
+                className={`w-full py-3 text-white rounded-lg transition-all shadow-lg shadow-blue-200 ${
+                  product.stock === 0 
+                    ? 'bg-gray-300 cursor-not-allowed' 
+                    : isAdding 
+                      ? 'bg-green-500 scale-95' 
+                      : 'bg-[#2563EB] hover:bg-[#1D4ED8] hover:-translate-y-1'
+                }`}
                 style={{ fontSize: '16px', fontWeight: '600' }}
                 onClick={() => {
                   if (cartContext) {
+                    setIsAdding(true);
                     cartContext.addItem(product, quantity);
+                    setTimeout(() => setIsAdding(false), 300);
                   }
                 }}
               >
-                {product.stock === 0 ? 'Sin stock' : 'Agregar al carrito'}
+                {product.stock === 0 ? 'Sin stock' : isAdding ? '¡Agregado!' : 'Agregar al carrito'}
               </button>
             </div>
           </div>

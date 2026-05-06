@@ -19,10 +19,9 @@ export function OrderFilters({
 }: OrderFiltersProps) {
   const statuses = [
     { value: 'todos', label: 'Todos' },
-    { value: 'pendiente', label: 'Pendiente' },
-    { value: 'en proceso', label: 'En proceso' },
-    { value: 'entregado', label: 'Entregado' },
-    { value: 'cancelado', label: 'Cancelado' },
+    { value: 'pendiente', label: '⏳ Pendiente de pago' },
+    { value: 'pagado', label: '✅ Pagado' },
+    { value: 'cancelado', label: '❌ Cancelado' },
   ];
 
   return (

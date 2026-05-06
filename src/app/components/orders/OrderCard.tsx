@@ -35,25 +35,27 @@ export function OrderCard({ order, onCancel }: OrderCardProps) {
           <OrderStatusBadge status={order.status} />
         </div>
 
-        {/* Payment method */}
-        <div className="flex items-center gap-2 text-[#6B7280]" style={{ fontSize: '14px' }}>
-          {order.paymentMethod === 'Nequi' ? (
-            <>
-              <span className="w-6 h-6 bg-[#2563EB] text-white rounded flex items-center justify-center" style={{ fontSize: '12px', fontWeight: '700' }}>
-                N
-              </span>
-              <span>Nequi</span>
-            </>
-          ) : (
-            <>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
-                <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
-                <line x1="1" y1="10" x2="23" y2="10" />
-              </svg>
-              <span>{order.paymentMethod || 'Tarjeta'}</span>
-            </>
-          )}
-        </div>
+        {/* Payment method (only if paid) */}
+        {order.status === 'pagado' && (
+          <div className="flex items-center gap-2 text-[#6B7280]" style={{ fontSize: '14px' }}>
+            {order.paymentMethod === 'Nequi' ? (
+              <>
+                <span className="w-6 h-6 bg-[#2563EB] text-white rounded flex items-center justify-center" style={{ fontSize: '12px', fontWeight: '700' }}>
+                  N
+                </span>
+                <span>Nequi</span>
+              </>
+            ) : (
+              <>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+                  <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                  <line x1="1" y1="10" x2="23" y2="10" />
+                </svg>
+                <span>{order.paymentMethod || 'Tarjeta'}</span>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Summary */}
         <p className="text-[#6B7280]" style={{ fontSize: '14px' }}>
@@ -69,6 +71,15 @@ export function OrderCard({ order, onCancel }: OrderCardProps) {
           >
             Ver detalle
           </Link>
+          {order.status === 'pendiente' && (
+            <Link
+              to={`/orders/${order.id}/pay`}
+              className="flex-1 py-2.5 px-4 text-center bg-[#2563EB] text-white border-2 border-[#2563EB] rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+              style={{ fontSize: '14px', fontWeight: '500' }}
+            >
+              Pagar ahora
+            </Link>
+          )}
           {(order.status === 'pendiente' || order.status === 'en proceso') && onCancel && (
             <button
               onClick={() => onCancel(order.id)}

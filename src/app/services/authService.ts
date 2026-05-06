@@ -19,6 +19,7 @@ const authService = {
     return {
       token: data.token,
       user: data.user || {
+        id: data.id,
         name: data.name,
         email: data.email,
         roles: data.roles
@@ -184,7 +185,7 @@ const authService = {
     return roles[frontendRole] || frontendRole.toUpperCase();
   },
 
-  saveAuthData(token: string, userData: { name: string; email: string; roles: string[] }) {
+  saveAuthData(token: string, userData: { id: number; name: string; email: string; roles: string[] }) {
     localStorage.setItem('isAuthenticated', 'true');
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
@@ -194,6 +195,7 @@ const authService = {
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('activeRole');
   },
 
   getToken(): string | null {

@@ -23,14 +23,14 @@ export function AdminOrders() {
       const data = await orderService.getAllOrders();
       const mappedOrders = data.map((o: any) => ({
         id: o.id.toString(),
-        userName: `User ${o.user_id}`, // In a real app, join with auth-service or include name in payload
-        userEmail: `user${o.user_id}@example.com`,
+        userName: o.user_name || `User ${o.user_id}`,
+        userEmail: o.user_email || `user${o.user_id}@example.com`,
         total: Number(o.total_amount),
         status: o.status.toLowerCase() === 'procesando' ? 'en proceso' : o.status.toLowerCase(),
         date: o.created_at,
         estimatedDeliveryDate: o.estimated_delivery_date,
         shippingAddress: {
-          name: `User ${o.user_id}`,
+          name: o.user_name || `User ${o.user_id}`,
           address: o.shipping_address,
           city: 'Ciudad',
           phone: '000-000-0000'
@@ -68,29 +68,7 @@ export function AdminOrders() {
     return matchesStatus && matchesDateFrom && matchesDateTo && matchesBuyer && matchesProduct;
   });
 
-  const handleExportCSV = () => {
-    const headers = ['ID', 'Usuario', 'Email', 'Total', 'Estado', 'Fecha', 'Productos'];
-    const rows = filteredOrders.map((order) => [
-      order.id,
-      order.userName,
-      order.userEmail,
-      order.total.toFixed(2),
-      order.status,
-      order.date,
-      order.items.map(i => i.name).join(' | ')
-    ]);
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row) => row.join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `pedidos_admin_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-  };
 
   const handleRowClick = (order: any) => {
     setSelectedOrder(order);
@@ -212,8 +190,7 @@ export function AdminOrders() {
             >
               <option>Todos</option>
               <option value="pendiente">Pendiente</option>
-              <option value="en proceso">En proceso</option>
-              <option value="entregado">Entregado</option>
+              <option value="pagado">Pagado</option>
               <option value="cancelado">Cancelado</option>
             </select>
           </div>
@@ -262,19 +239,6 @@ export function AdminOrders() {
             </svg>
             Limpiar filtros
           </button>
-          
-          <div className="flex gap-3">
-            <button
-              onClick={handleExportCSV}
-              className="flex items-center gap-2 px-5 py-2 bg-white dark:bg-[#111827] border border-[#E5E7EB] dark:border-[#374151] text-[#111827] dark:text-white rounded-xl hover:bg-gray-50 transition-all font-medium shadow-sm"
-              style={{ fontSize: '13px' }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              Exportar Reporte
-            </button>
-          </div>
         </div>
       </div>
 

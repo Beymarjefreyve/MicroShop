@@ -42,7 +42,7 @@ export const router = createBrowserRouter([
       { path: 'seller/products/:id/edit', Component: ProductFormPage },
       { path: 'cart', Component: Cart },
       { path: 'checkout', Component: Checkout },
-      { path: 'checkout/payment', Component: Payment },
+      { path: 'orders/:id/pay', Component: Payment },
       { path: 'checkout/confirmation', Component: Confirmation },
       { path: 'orders', Component: Orders },
       { path: 'orders/:id', Component: OrderDetail },

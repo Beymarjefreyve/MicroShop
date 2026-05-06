@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
 import { Navbar } from '../components/shared/Navbar';
-import { OrderStatusBadge } from '../components/orders/OrderStatusBadge';
-import { OrderTimeline } from '../components/orders/OrderTimeline';
 import { CancelModal } from '../components/orders/CancelModal';
 import { Toast } from '../components/orders/Toast';
 import { orderService } from '../services/orderService';
 import { useCart } from '../hooks/useCart';
-
+import { catalogService } from '../services/catalogService';
 export function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -23,6 +21,15 @@ export function OrderDetail() {
     try {
       setLoading(true);
       const data = await orderService.getOrderById(Number(id));
+      
+      let catalogProducts: any[] = [];
+      try {
+        const productsResponse = await catalogService.getProducts();
+        catalogProducts = productsResponse.results || [];
+      } catch (err) {
+        console.error('Failed to load catalog products for order', err);
+      }
+
       const mappedOrder = {
         id: data.id.toString(),
         date: data.created_at,
@@ -30,18 +37,21 @@ export function OrderDetail() {
         status: data.status.toLowerCase(),
         total: Number(data.total_amount),
         shippingAddress: {
-          name: 'Usuario',
+          name: data.user_name || 'Usuario',
           address: data.shipping_address,
           city: '',
           phone: ''
         },
-        paymentMethod: 'Tarjeta',
-        items: data.items.map((i: any) => ({
-          name: i.product_name,
-          quantity: i.quantity,
-          price: Number(i.price_at_purchase),
-          image: 'package'
-        })),
+        paymentMethod: data.payment_method || 'Tarjeta',
+        items: data.items.map((i: any) => {
+          const productData = catalogProducts.find(p => p.id === i.product_id);
+          return {
+            name: i.product_name,
+            quantity: i.quantity,
+            price: Number(i.price_at_purchase),
+            image: productData?.image || 'package'
+          };
+        }),
         timeline: data.history.map((h: any) => ({
           status: h.status.toLowerCase(),
           date: h.changed_at,
@@ -89,7 +99,7 @@ export function OrderDetail() {
     return `${date.getDate()} de ${months[date.getMonth()]} de ${date.getFullYear()}`;
   };
 
-  const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = order.items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0);
   const shipping = 15.0;
   const tax = subtotal * 0.19;
   const total = subtotal + shipping + tax;
@@ -110,7 +120,7 @@ export function OrderDetail() {
   };
 
   const handleReorder = () => {
-    order.items.forEach((item) => {
+    order.items.forEach((item: any) => {
       addItem({
         id: Math.floor(Math.random() * 1000000),
         name: item.name,
@@ -155,39 +165,32 @@ export function OrderDetail() {
               <p className="text-[#6B7280]" style={{ fontSize: '14px' }}>
                 {formatDate(order.date)}
               </p>
-              <div className="flex items-center gap-2 mt-2 text-[#6B7280]" style={{ fontSize: '14px' }}>
-                {order.paymentMethod === 'Nequi' ? (
-                  <>
-                    <span className="w-6 h-6 bg-[#2563EB] text-white rounded flex items-center justify-center" style={{ fontSize: '12px', fontWeight: '700' }}>
-                      N
-                    </span>
-                    <span>Nequi</span>
-                  </>
-                ) : (
-                  <>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
-                      <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
-                      <line x1="1" y1="10" x2="23" y2="10" />
-                    </svg>
-                    <span>Tarjeta de crédito</span>
-                  </>
-                )}
-              </div>
+              {order.status === 'pagado' && (
+                <div className="flex items-center gap-2 mt-2 text-[#6B7280]" style={{ fontSize: '14px' }}>
+                  {order.paymentMethod === 'Nequi' ? (
+                    <>
+                      <span className="w-6 h-6 bg-[#2563EB] text-white rounded flex items-center justify-center" style={{ fontSize: '12px', fontWeight: '700' }}>
+                        N
+                      </span>
+                      <span>Nequi</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+                        <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                        <line x1="1" y1="10" x2="23" y2="10" />
+                      </svg>
+                      <span>{order.paymentMethod || 'Tarjeta'}</span>
+                    </>
+                  )}
+                </div>
+              )}
               {order.estimatedDeliveryDate && (
                 <p className="mt-2 text-[#2563EB]" style={{ fontSize: '14px', fontWeight: '600' }}>
                   🚚 Entrega estimada: {formatDate(order.estimatedDeliveryDate)}
                 </p>
               )}
             </div>
-            <OrderStatusBadge status={order.status} />
-          </div>
-
-          {/* Timeline */}
-          <div className="border-t border-[#E5E7EB] pt-6">
-            <h2 className="text-[#111827] mb-4" style={{ fontSize: '16px', fontWeight: '600' }}>
-              Estado del pedido
-            </h2>
-            <OrderTimeline timeline={order.timeline} status={order.status} />
           </div>
         </div>
 
@@ -215,14 +218,16 @@ export function OrderDetail() {
                 </tr>
               </thead>
               <tbody>
-                {order.items.map((item, index) => (
+                {order.items.map((item: any, index: number) => (
                   <tr key={index} className="border-b border-[#E5E7EB]">
                     <td className="py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <span style={{ fontSize: '20px' }}>
-                            {item.image === 'laptop' ? '💻' : item.image === 'headphones' ? '🎧' : '🖱️'}
-                          </span>
+                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                          {item.image && (item.image.startsWith('http') || item.image.startsWith('/media')) ? (
+                            <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span style={{ fontSize: '20px' }}>📦</span>
+                          )}
                         </div>
                         <span className="text-[#111827]" style={{ fontSize: '14px' }}>
                           {item.name}
@@ -294,6 +299,15 @@ export function OrderDetail() {
 
         {/* Action buttons */}
         <div className="flex flex-col sm:flex-row gap-4">
+          {order.status === 'pendiente' && (
+            <button
+              onClick={() => navigate(`/orders/${order.id}/pay`)}
+              className="flex-1 py-3 px-6 rounded-lg bg-[#2563EB] text-white hover:bg-[#1D4ED8] transition-colors"
+              style={{ fontSize: '14px', fontWeight: '500' }}
+            >
+              Pagar ahora
+            </button>
+          )}
           {(order.status === 'pendiente' || order.status === 'en proceso') && (
             <button
               onClick={() => setCancelModalOpen(true)}

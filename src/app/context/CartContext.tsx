@@ -1,6 +1,7 @@
 import { createContext, useReducer, ReactNode, useEffect, useCallback } from 'react';
 import { cartService } from '../services/cartService';
 import authService from '../services/authService';
+import { catalogService } from '../services/catalogService';
 
 export interface CartItem {
   id: number; // Item ID in cart-service
@@ -26,6 +27,7 @@ interface CartContextType {
   state: CartState;
   addItem: (product: any, quantity?: number) => Promise<void>;
   removeItem: (itemId: number) => Promise<void>;
+  removeSelectedItems: (itemIds: number[]) => Promise<void>;
   updateQuantity: (itemId: number, quantity: number) => Promise<void>;
   clearCart: () => Promise<void>;
   getTotalItems: () => number;
@@ -57,15 +59,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const cart = await cartService.getCart(user.id);
-      const mappedItems: CartItem[] = cart.items.map(item => ({
-        id: item.id,
-        product_id: item.product_id,
-        name: item.product_name,
-        price: Number(item.price_at_addition),
-        quantity: item.quantity,
-        image: 'default', // Ideally backend returns image too
-        category: 'General'
-      }));
+      
+      // Fetch catalog to merge image data
+      let catalogProducts: any[] = [];
+      try {
+        const productsResponse = await catalogService.getProducts();
+        catalogProducts = productsResponse.results || [];
+      } catch (err) {
+        console.error('Failed to load catalog products for cart', err);
+      }
+
+      const mappedItems: CartItem[] = cart.items.map(item => {
+        const productData = catalogProducts.find(p => p.id === item.product_id);
+        return {
+          id: item.id,
+          product_id: item.product_id,
+          name: item.product_name,
+          price: Number(item.price_at_addition),
+          quantity: item.quantity,
+          image: productData?.image || 'default',
+          category: productData?.category_name || 'General'
+        };
+      });
       dispatch({ type: 'LOAD_CART', payload: mappedItems });
     } catch (e) {
       console.error('Error fetching cart:', e);
@@ -109,6 +124,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const removeSelectedItems = async (itemIds: number[]) => {
+    const user = authService.getUser();
+    if (!user || !user.id) return;
+
+    try {
+      await cartService.bulkRemoveItems(user.id, itemIds);
+      await fetchCart();
+    } catch (e) {
+      console.error('Error removing selected items:', e);
+    }
+  };
+
   const updateQuantity = async (itemId: number, quantity: number) => {
     const user = authService.getUser();
     if (!user || !user.id || quantity < 1) return;
@@ -145,6 +172,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     state,
     addItem,
     removeItem,
+    removeSelectedItems,
     updateQuantity,
     clearCart,
     getTotalItems,

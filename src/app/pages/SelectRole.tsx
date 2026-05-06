@@ -23,6 +23,7 @@ export function SelectRole() {
   }, [navigate]);
 
   const handleRoleSelect = (role: string) => {
+    localStorage.setItem('activeRole', role);
     if (role === 'ADMIN') {
       navigate('/admin/dashboard');
     } else if (role === 'SELLER') {

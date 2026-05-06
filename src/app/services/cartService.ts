@@ -69,6 +69,19 @@ export const cartService = {
         return response.json();
     },
 
+    async bulkRemoveItems(userId: number, itemIds: number[]): Promise<Cart> {
+        const response = await fetch(`${API_URL}/bulk_remove/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: userId,
+                item_ids: itemIds
+            }),
+        });
+        if (!response.ok) throw new Error('Failed to bulk remove items');
+        return response.json();
+    },
+
     async clearCart(userId: number): Promise<Cart> {
         const response = await fetch(`${API_URL}/clear/`, {
             method: 'POST',

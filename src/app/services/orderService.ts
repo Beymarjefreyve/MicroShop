@@ -18,9 +18,13 @@ export interface OrderHistory {
 export interface Order {
     id: number;
     user_id: number;
+    user_name: string;
+    user_email: string;
     status: string;
     total_amount: number;
     shipping_address: string;
+    payment_method?: string;
+    estimated_delivery_date?: string;
     items: OrderItem[];
     history: OrderHistory[];
     created_at: string;
@@ -50,13 +54,16 @@ export const orderService = {
         return response.json();
     },
 
-    async createOrder(orderData: { user_id: number; total_amount: number; shipping_address: string; items: any[] }): Promise<Order> {
+    async createOrder(orderData: { user_id: number; user_name?: string; user_email?: string; total_amount: number; tax_amount?: number; shipping_address: string; items: any[] }): Promise<Order> {
         const response = await fetch(`${API_URL}/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(orderData),
         });
-        if (!response.ok) throw new Error('Failed to create order');
+        if (!response.ok) {
+            const errorData = await response.text();
+            throw new Error(`Failed to create order: ${errorData}`);
+        }
         return response.json();
     },
 
@@ -72,13 +79,16 @@ export const orderService = {
         return response.json();
     },
 
-    async updateStatus(id: number, status: string, comment: string = ''): Promise<Order> {
+    async updateStatus(id: number, status: string, comment: string = '', paymentMethod?: string): Promise<Order> {
         const response = await fetch(`${API_URL}/${id}/update_status/`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status, comment }),
+            body: JSON.stringify({ status, comment, payment_method: paymentMethod }),
         });
-        if (!response.ok) throw new Error('Failed to update status');
+        if (!response.ok) {
+            const errorData = await response.text();
+            throw new Error(`Failed to update status: ${errorData}`);
+        }
         return response.json();
     }
 };

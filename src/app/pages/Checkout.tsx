@@ -1,13 +1,19 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useLocation } from 'react-router';
 import { Navbar } from '../components/shared/Navbar';
-import { CheckoutStepper } from '../components/cart/CheckoutStepper';
 import { OrderSummary } from '../components/cart/OrderSummary';
 import { useCart } from '../hooks/useCart';
+import { orderService } from '../services/orderService';
+import authService from '../services/authService';
 
 export function Checkout() {
   const navigate = useNavigate();
-  const { state } = useCart();
+  const location = useLocation();
+  const { state, removeSelectedItems } = useCart();
+  
+  const selectedItemIds: number[] = location.state?.selectedItemIds || [];
+  const checkoutItems = state.items.filter(item => selectedItemIds.includes(item.id));
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     address: '',
@@ -44,17 +50,49 @@ export function Checkout() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleContinue = () => {
-    if (validateForm()) {
-      localStorage.setItem('checkout_address', JSON.stringify(formData));
-      navigate('/checkout/payment');
-    }
-  };
-
-  const subtotal = state.items.reduce(
+  const subtotal = checkoutItems.reduce(
     (total, item) => total + item.price * item.quantity,
     0
   );
+  const shipping = subtotal > 100 ? 0 : 5.0;
+  const tax = subtotal * 0.19;
+  const total = subtotal + shipping + tax;
+
+  const handleContinue = async () => {
+    if (validateForm()) {
+      const user = authService.getUser();
+      if (!user || !user.id) {
+        alert('Debes iniciar sesión para realizar el pedido');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        await orderService.createOrder({
+          user_id: user.id,
+          user_name: user.name || '',
+          user_email: user.email || '',
+          total_amount: Number(total.toFixed(2)),
+          tax_amount: Number(tax.toFixed(2)),
+          shipping_address: `${formData.fullName}, ${formData.address}, ${formData.city}, ${formData.state} CP: ${formData.zipCode}. Tel: ${formData.phone}`,
+          items: checkoutItems.map(item => ({
+            product_id: item.product_id,
+            product_name: item.name,
+            quantity: item.quantity,
+            price_at_purchase: item.price
+          }))
+        });
+        
+        await removeSelectedItems(selectedItemIds);
+        navigate('/orders');
+      } catch (e: any) {
+        console.error('Error creating order:', e);
+        alert(`Hubo un error al procesar el pedido: ${e.message}`);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
   if (state.items.length === 0) {
     navigate('/cart');
@@ -65,7 +103,6 @@ export function Checkout() {
     <>
       <Navbar />
       <div className="min-h-screen bg-gray-50 pt-16">
-        <CheckoutStepper currentStep={1} />
 
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -74,18 +111,22 @@ export function Checkout() {
               {/* Productos del carrito */}
               <div className="bg-white border border-[#E5E7EB] rounded-xl p-6">
                 <h2 className="text-xl text-[#111827] font-semibold mb-4">
-                  Productos ({state.items.length})
+                  Productos ({checkoutItems.length})
                 </h2>
                 <div className="space-y-3">
-                  {state.items.map((item) => (
+                  {checkoutItems.map((item) => (
                     <div key={item.id} className="flex justify-between items-center">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                            <circle cx="8.5" cy="8.5" r="1.5" />
-                            <polyline points="21 15 16 10 5 21" />
-                          </svg>
+                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                          {item.image && (item.image.startsWith('http') || item.image.startsWith('/media')) ? (
+                            <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                              <circle cx="8.5" cy="8.5" r="1.5" />
+                              <polyline points="21 15 16 10 5 21" />
+                            </svg>
+                          )}
                         </div>
                         <div>
                           <div className="text-[#111827] font-medium">{item.name}</div>
@@ -226,9 +267,20 @@ export function Checkout() {
                 </button>
                 <button
                   onClick={handleContinue}
-                  className="flex-1 bg-[#2563EB] text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                  disabled={loading}
+                  className="flex-1 bg-[#2563EB] text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
                 >
-                  Continuar al pago
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
+                        <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" className="opacity-75" />
+                      </svg>
+                      Procesando...
+                    </>
+                  ) : (
+                    'Generar orden'
+                  )}
                 </button>
               </div>
             </div>

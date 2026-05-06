@@ -46,8 +46,7 @@ export function AdminLogin() {
       authService.saveAuthData('mock-admin-token', {
         id: 1,
         email: formData.email || 'admin@microshop.com',
-        firstName: 'Admin',
-        lastName: 'Master',
+        name: 'Admin Master',
         roles: ['ADMIN']
       });
       navigate('/admin/dashboard');
