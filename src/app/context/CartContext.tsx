@@ -52,7 +52,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const fetchCart = useCallback(async () => {
     const user = authService.getUser();
-    if (!user || !user.id) return;
+    if (!user) return;
+    if (!user.id) {
+      console.warn('[CartContext] Usuario sin ID — necesita volver a iniciar sesión para usar el carrito.');
+      return;
+    }
 
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
@@ -63,7 +67,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         name: item.product_name,
         price: Number(item.price_at_addition),
         quantity: item.quantity,
-        image: 'default', // Ideally backend returns image too
+        image: 'default',
         category: 'General'
       }));
       dispatch({ type: 'LOAD_CART', payload: mappedItems });
@@ -80,8 +84,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = async (product: any, quantity: number = 1) => {
     const user = authService.getUser();
-    if (!user || !user.id) {
+    if (!user) {
       alert('Debes iniciar sesión para agregar al carrito');
+      return;
+    }
+    if (!user.id) {
+      alert('Tu sesión está desactualizada. Por favor cierra sesión y vuelve a entrar.');
       return;
     }
 

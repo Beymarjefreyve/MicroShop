@@ -1,5 +1,7 @@
 import { Link } from 'react-router';
 import { StarRating } from './StarRating';
+import { useContext, useState } from 'react';
+import { CartContext } from '../../context/CartContext';
 
 interface ProductCardProps {
   id: number;
@@ -26,6 +28,9 @@ const imageColors: Record<string, string> = {
 };
 
 export function ProductCard({ id, name, price, rating, stock, image }: ProductCardProps) {
+  const cartContext = useContext(CartContext);
+  const [adding, setAdding] = useState(false);
+  const [added, setAdded] = useState(false);
   const isOutOfStock = stock === 0;
   
   // If image is a URL, use it; otherwise use color placeholder
@@ -90,21 +95,30 @@ export function ProductCard({ id, name, price, rating, stock, image }: ProductCa
             </p>
 
             <button
-              disabled={isOutOfStock}
+              disabled={isOutOfStock || adding}
               className={`w-full py-2 rounded-lg transition-colors ${
                 isOutOfStock
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : added
+                  ? 'bg-green-600 text-white'
                   : 'bg-[#2563EB] text-white hover:bg-[#1D4ED8]'
               }`}
               style={{ fontSize: '14px', fontWeight: '500' }}
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.preventDefault();
-                if (!isOutOfStock) {
-                  alert('Producto agregado al carrito');
+                if (!isOutOfStock && cartContext) {
+                  setAdding(true);
+                  try {
+                    await cartContext.addItem({ id, name, price, image }, 1);
+                    setAdded(true);
+                    setTimeout(() => setAdded(false), 2000);
+                  } finally {
+                    setAdding(false);
+                  }
                 }
               }}
             >
-              {isOutOfStock ? 'Sin stock' : 'Agregar al carrito'}
+              {isOutOfStock ? 'Sin stock' : adding ? 'Agregando...' : added ? '¡Agregado!' : 'Agregar al carrito'}
             </button>
           </div>
         </div>

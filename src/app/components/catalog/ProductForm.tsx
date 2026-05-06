@@ -95,7 +95,7 @@ export function ProductForm({ mode, productId, initialData }: ProductFormProps) 
       const user = authService.getUser();
       const payload = {
         ...formData,
-        seller: user?.id,
+        seller_id: user?.id,
         // Backend usually expects category ID
         category: typeof formData.category === 'string' ? parseInt(formData.category) : formData.category
       };

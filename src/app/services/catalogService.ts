@@ -107,7 +107,10 @@ export const catalogService = {
       headers: isFormData ? undefined : { 'Content-Type': 'application/json' },
       body: isFormData ? productData : JSON.stringify(productData),
     });
-    if (!response.ok) throw new Error('Failed to create product');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(JSON.stringify(errorData) || 'Failed to create product');
+    }
     const data = await response.json();
     return { 
       ...data, 
