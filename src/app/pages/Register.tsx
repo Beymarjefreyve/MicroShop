@@ -4,6 +4,7 @@ import { AuthCard } from '../components/auth/AuthCard';
 import { InputField } from '../components/auth/InputField';
 import { PasswordInput } from '../components/auth/PasswordInput';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
+import authService from '../services/authService';
 
 export function Register() {
   const [formData, setFormData] = useState({
@@ -12,11 +13,13 @@ export function Register() {
     password: '',
     confirmPassword: ''
   });
+  const [roles, setRoles] = useState<string[]>(['buyer']);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [apiError, setApiError] = useState('');
 
   const validateField = (name: string, value: string) => {
     let error = '';
@@ -47,6 +50,17 @@ export function Register() {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     validateField(name, value);
+    setApiError('');
+  };
+
+  const toggleRole = (role: string) => {
+    setRoles(prev => {
+      if (prev.includes(role)) {
+        if (prev.length === 1) return prev; // Must have at least one role
+        return prev.filter(r => r !== role);
+      }
+      return [...prev, role];
+    });
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -60,11 +74,16 @@ export function Register() {
     if (hasErrors || !acceptTerms) return;
 
     setLoading(true);
+    setApiError('');
 
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await authService.register(formData, roles);
       setSuccess(true);
-    }, 1500);
+    } catch (error: any) {
+      setApiError(error.message || 'Error en el registro');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -76,6 +95,12 @@ export function Register() {
         Únete a MicroShop y comienza a comprar
       </p>
 
+      {apiError && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm text-center">
+          {apiError}
+        </div>
+      )}
+
       {success && (
         <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
           <p className="text-green-800" style={{ fontSize: '14px' }}>
@@ -85,6 +110,39 @@ export function Register() {
       )}
 
       <form onSubmit={handleSubmit}>
+        <div className="mb-6">
+          <label className="block text-[#374151] mb-2" style={{ fontSize: '14px', fontWeight: '500' }}>
+            Quiero registrarme como:
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => toggleRole('buyer')}
+              className={`py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+                roles.includes('buyer')
+                  ? 'bg-[#2563EB] text-white shadow-md'
+                  : 'bg-[#F3F4F6] text-[#6B7280] hover:bg-[#E5E7EB]'
+              }`}
+            >
+              Comprador
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleRole('seller')}
+              className={`py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+                roles.includes('seller')
+                  ? 'bg-[#2563EB] text-white shadow-md'
+                  : 'bg-[#F3F4F6] text-[#6B7280] hover:bg-[#E5E7EB]'
+              }`}
+            >
+              Vendedor
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-[#9CA3AF]">
+            * Puedes seleccionar ambos roles
+          </p>
+        </div>
+
         <InputField
           label="Nombre completo"
           id="fullName"

@@ -18,6 +18,8 @@ import { AdminUsers } from './pages/AdminUsers';
 import { AdminOrders } from './pages/AdminOrders';
 import { AdminIncidents } from './pages/AdminIncidents';
 import { AdminInventory } from './pages/AdminInventory';
+import { VerifyEmail } from './pages/VerifyEmail';
+import { ResetPassword } from './pages/ResetPassword';
 
 export const router = createBrowserRouter([
   {
@@ -27,6 +29,8 @@ export const router = createBrowserRouter([
       { path: 'register', Component: Register },
       { path: 'login', Component: Login },
       { path: 'forgot-password', Component: ForgotPassword },
+      { path: 'verify-email', Component: VerifyEmail },
+      { path: 'reset-password', Component: ResetPassword },
       { path: 'profile', Component: Profile },
       { path: 'catalog', Component: Catalog },
       { path: 'product/:id', Component: ProductDetail },

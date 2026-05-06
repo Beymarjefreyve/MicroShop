@@ -4,6 +4,7 @@ import { AuthCard } from '../components/auth/AuthCard';
 import { InputField } from '../components/auth/InputField';
 import { PasswordInput } from '../components/auth/PasswordInput';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
+import authService from '../services/authService';
 
 export function Login() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export function Login() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState('');
 
   const validateField = (name: string, value: string) => {
     let error = '';
@@ -33,6 +35,7 @@ export function Login() {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     validateField(name, value);
+    setApiError('');
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -46,12 +49,25 @@ export function Login() {
     if (hasErrors) return;
 
     setLoading(true);
+    setApiError('');
 
-    setTimeout(() => {
+    try {
+      const data = await authService.login(formData);
+      authService.saveAuthData(data.token, data.user);
+      
+      const roles = data.user?.roles || [];
+      if (roles.includes('ADMIN')) {
+        navigate('/admin/dashboard');
+      } else if (roles.includes('SELLER')) {
+        navigate('/seller/products');
+      } else {
+        navigate('/catalog');
+      }
+    } catch (error: any) {
+      setApiError(error.message || 'Error al iniciar sesión');
+    } finally {
       setLoading(false);
-      localStorage.setItem('isAuthenticated', 'true');
-      navigate('/profile');
-    }, 1500);
+    }
   };
 
   return (
@@ -62,6 +78,12 @@ export function Login() {
       <p className="text-center text-[#6B7280] mb-6" style={{ fontSize: '14px' }}>
         Inicia sesión para continuar
       </p>
+
+      {apiError && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm text-center">
+          {apiError}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit}>
         <InputField

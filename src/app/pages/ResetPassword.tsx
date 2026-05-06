@@ -3,7 +3,6 @@ import { Link, useSearchParams } from 'react-router';
 import { AuthCard } from '../components/auth/AuthCard';
 import { PasswordInput } from '../components/auth/PasswordInput';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
-
 import authService from '../services/authService';
 
 export function ResetPassword() {

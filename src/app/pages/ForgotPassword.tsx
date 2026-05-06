@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { AuthCard } from '../components/auth/AuthCard';
 import { InputField } from '../components/auth/InputField';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
+import authService from '../services/authService';
 
 export function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -29,11 +30,16 @@ export function ForgotPassword() {
     if (!validateEmail(email)) return;
 
     setLoading(true);
+    setError('');
 
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await authService.forgotPassword(email);
       setSuccess(true);
-    }, 1500);
+    } catch (err: any) {
+      setError(err.message || 'Ocurrió un error al procesar tu solicitud');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
