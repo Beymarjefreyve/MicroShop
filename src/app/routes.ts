@@ -18,6 +18,7 @@ import { AdminUsers } from './pages/AdminUsers';
 import { AdminOrders } from './pages/AdminOrders';
 import { AdminIncidents } from './pages/AdminIncidents';
 import { AdminInventory } from './pages/AdminInventory';
+import { AdminLogin } from './pages/AdminLogin';
 import { VerifyEmail } from './pages/VerifyEmail';
 import { ResetPassword } from './pages/ResetPassword';
 import { SelectRole } from './pages/SelectRole';
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
       { path: 'admin/orders', Component: AdminOrders },
       { path: 'admin/incidents', Component: AdminIncidents },
       { path: 'admin/inventory', Component: AdminInventory },
+      { path: 'admin/login', Component: AdminLogin },
     ],
   },
 ]);

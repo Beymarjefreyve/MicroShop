@@ -9,6 +9,8 @@ export function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState<string>('Todos');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [buyerFilter, setBuyerFilter] = useState('');
+  const [productFilter, setProductFilter] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [showDrawer, setShowDrawer] = useState(false);
 
@@ -16,18 +18,25 @@ export function AdminOrders() {
     const matchesStatus = statusFilter === 'Todos' || order.status === statusFilter;
     const matchesDateFrom = !dateFrom || order.date >= dateFrom;
     const matchesDateTo = !dateTo || order.date <= dateTo;
-    return matchesStatus && matchesDateFrom && matchesDateTo;
+    const matchesBuyer = !buyerFilter || 
+      order.userName.toLowerCase().includes(buyerFilter.toLowerCase()) ||
+      order.userEmail.toLowerCase().includes(buyerFilter.toLowerCase());
+    const matchesProduct = !productFilter || 
+      order.items.some(item => item.name.toLowerCase().includes(productFilter.toLowerCase()));
+      
+    return matchesStatus && matchesDateFrom && matchesDateTo && matchesBuyer && matchesProduct;
   });
 
   const handleExportCSV = () => {
-    const headers = ['ID', 'Usuario', 'Email', 'Total', 'Estado', 'Fecha'];
+    const headers = ['ID', 'Usuario', 'Email', 'Total', 'Estado', 'Fecha', 'Productos'];
     const rows = filteredOrders.map((order) => [
       order.id,
       order.userName,
       order.userEmail,
       order.total.toFixed(2),
       order.status,
-      order.date
+      order.date,
+      order.items.map(i => i.name).join(' | ')
     ]);
 
     const csvContent = [
@@ -38,7 +47,7 @@ export function AdminOrders() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `pedidos_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `pedidos_admin_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
   };
 
@@ -63,29 +72,37 @@ export function AdminOrders() {
   };
 
   const columns = [
-    { header: 'ID', accessor: 'id' as const, width: '12%' },
-    { header: 'Usuario', accessor: 'userName' as const, width: '20%' },
+    { header: 'ID', accessor: 'id' as const, width: '10%' },
+    { header: 'Comprador', accessor: 'userName' as const, width: '18%' },
     {
       header: 'Email',
       accessor: 'userEmail' as const,
-      width: '25%'
+      width: '20%'
+    },
+    {
+      header: 'Productos',
+      accessor: (row: AdminOrder) => (
+        <div className="truncate max-w-[200px]" title={row.items.map(i => i.name).join(', ')}>
+          {row.items.map(i => i.name).join(', ')}
+        </div>
+      ),
+      width: '20%'
     },
     {
       header: 'Total',
       accessor: (row: AdminOrder) => `$${row.total.toFixed(2)}`,
-      width: '12%'
+      width: '10%'
     },
     {
       header: 'Estado',
       accessor: (row: AdminOrder) => (
         <span
-          className={`px-2 py-1 rounded-lg ${getStatusColor(row.status)} capitalize`}
-          style={{ fontSize: '12px', fontWeight: '500' }}
+          className={`px-2 py-1 rounded-lg ${getStatusColor(row.status)} capitalize text-[11px] font-bold`}
         >
           {row.status}
         </span>
       ),
-      width: '15%'
+      width: '12%'
     },
     {
       header: 'Fecha',
@@ -95,24 +112,62 @@ export function AdminOrders() {
           month: 'short',
           year: 'numeric'
         }),
-      width: '16%'
+      width: '10%'
     }
   ];
 
   return (
-    <AdminLayout title="Pedidos">
-      {/* Filters */}
-      <div className="mb-6">
-        <div className="flex flex-col lg:flex-row gap-4 mb-4">
-          <div className="flex-1">
-            <label className="block text-[#6B7280] dark:text-[#9CA3AF] mb-2" style={{ fontSize: '12px' }}>
+    <AdminLayout title="Gestión de Pedidos">
+      {/* Filters Card */}
+      <div className="bg-white dark:bg-[#1F2937] p-6 rounded-2xl shadow-sm border border-[#E5E7EB] dark:border-[#374151] mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
+          <div>
+            <label className="block text-[#6B7280] dark:text-[#9CA3AF] mb-2 font-medium" style={{ fontSize: '12px' }}>
+              Comprador
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Nombre o email..."
+                value={buyerFilter}
+                onChange={(e) => setBuyerFilter(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-[#F9FAFB] dark:bg-[#111827] border border-[#E5E7EB] dark:border-[#374151] rounded-xl text-[#111827] dark:text-white focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] outline-none transition-all"
+                style={{ fontSize: '13px' }}
+              />
+              <svg className="absolute left-3 top-2.5 text-[#9CA3AF]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[#6B7280] dark:text-[#9CA3AF] mb-2 font-medium" style={{ fontSize: '12px' }}>
+              Producto
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Buscar en artículos..."
+                value={productFilter}
+                onChange={(e) => setProductFilter(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-[#F9FAFB] dark:bg-[#111827] border border-[#E5E7EB] dark:border-[#374151] rounded-xl text-[#111827] dark:text-white focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] outline-none transition-all"
+                style={{ fontSize: '13px' }}
+              />
+              <svg className="absolute left-3 top-2.5 text-[#9CA3AF]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+              </svg>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[#6B7280] dark:text-[#9CA3AF] mb-2 font-medium" style={{ fontSize: '12px' }}>
               Estado
             </label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-4 py-2.5 bg-white dark:bg-[#1F2937] border-2 border-[#E5E7EB] dark:border-[#374151] rounded-lg text-[#111827] dark:text-white focus:outline-none focus:border-[#2563EB] transition-colors"
-              style={{ fontSize: '14px' }}
+              className="w-full px-4 py-2 bg-[#F9FAFB] dark:bg-[#111827] border border-[#E5E7EB] dark:border-[#374151] rounded-xl text-[#111827] dark:text-white focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] outline-none transition-all appearance-none"
+              style={{ fontSize: '13px' }}
             >
               <option>Todos</option>
               <option value="pendiente">Pendiente</option>
@@ -121,50 +176,64 @@ export function AdminOrders() {
               <option value="cancelado">Cancelado</option>
             </select>
           </div>
-          <div className="flex-1">
-            <label className="block text-[#6B7280] dark:text-[#9CA3AF] mb-2" style={{ fontSize: '12px' }}>
+
+          <div>
+            <label className="block text-[#6B7280] dark:text-[#9CA3AF] mb-2 font-medium" style={{ fontSize: '12px' }}>
               Desde
             </label>
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full px-4 py-2.5 bg-white dark:bg-[#1F2937] border-2 border-[#E5E7EB] dark:border-[#374151] rounded-lg text-[#111827] dark:text-white focus:outline-none focus:border-[#2563EB] transition-colors"
-              style={{ fontSize: '14px' }}
+              className="w-full px-4 py-2 bg-[#F9FAFB] dark:bg-[#111827] border border-[#E5E7EB] dark:border-[#374151] rounded-xl text-[#111827] dark:text-white focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] outline-none transition-all"
+              style={{ fontSize: '13px' }}
             />
           </div>
-          <div className="flex-1">
-            <label className="block text-[#6B7280] dark:text-[#9CA3AF] mb-2" style={{ fontSize: '12px' }}>
+
+          <div>
+            <label className="block text-[#6B7280] dark:text-[#9CA3AF] mb-2 font-medium" style={{ fontSize: '12px' }}>
               Hasta
             </label>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="w-full px-4 py-2.5 bg-white dark:bg-[#1F2937] border-2 border-[#E5E7EB] dark:border-[#374151] rounded-lg text-[#111827] dark:text-white focus:outline-none focus:border-[#2563EB] transition-colors"
-              style={{ fontSize: '14px' }}
+              className="w-full px-4 py-2 bg-[#F9FAFB] dark:bg-[#111827] border border-[#E5E7EB] dark:border-[#374151] rounded-xl text-[#111827] dark:text-white focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] outline-none transition-all"
+              style={{ fontSize: '13px' }}
             />
           </div>
         </div>
-        <div className="flex gap-3">
+
+        <div className="flex items-center justify-between pt-4 border-t border-[#F3F4F6] dark:border-[#374151]">
           <button
             onClick={() => {
               setStatusFilter('Todos');
               setDateFrom('');
               setDateTo('');
+              setBuyerFilter('');
+              setProductFilter('');
             }}
-            className="text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
-            style={{ fontSize: '14px', fontWeight: '500' }}
+            className="flex items-center gap-2 text-[#6B7280] hover:text-[#EF4444] transition-colors font-medium"
+            style={{ fontSize: '13px' }}
           >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
             Limpiar filtros
           </button>
-          <button
-            onClick={handleExportCSV}
-            className="ml-auto px-6 py-2.5 bg-[#2563EB] text-white rounded-lg hover:bg-[#1D4ED8] transition-colors"
-            style={{ fontSize: '14px', fontWeight: '500' }}
-          >
-            📥 Exportar CSV
-          </button>
+          
+          <div className="flex gap-3">
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-2 px-5 py-2 bg-white dark:bg-[#111827] border border-[#E5E7EB] dark:border-[#374151] text-[#111827] dark:text-white rounded-xl hover:bg-gray-50 transition-all font-medium shadow-sm"
+              style={{ fontSize: '13px' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Exportar Reporte
+            </button>
+          </div>
         </div>
       </div>
 

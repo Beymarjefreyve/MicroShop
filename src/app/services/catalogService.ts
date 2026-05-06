@@ -13,6 +13,7 @@ export interface Product {
   seller_id: number;
   seller_name?: string;
   average_rating?: number;
+  image?: string;
   images?: { id: number; image: string }[];
   created_at?: string;
   updated_at?: string;

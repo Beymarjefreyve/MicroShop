@@ -27,25 +27,27 @@ const imageColors: Record<string, string> = {
 
 export function ProductCard({ id, name, price, rating, stock, image }: ProductCardProps) {
   const isOutOfStock = stock === 0;
-  const bgColor = imageColors[image] || '#9CA3AF';
+  
+  // If image is a URL, use it; otherwise use color placeholder
+  const isUrl = image && (image.startsWith('http') || image.startsWith('/media'));
+  const bgColor = !isUrl ? (imageColors[image] || '#9CA3AF') : 'transparent';
 
   return (
     <Link to={`/product/${id}`}>
       <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden h-full flex flex-col">
-        {/* Product Image */}
-        <div className="relative h-[200px] w-full overflow-hidden bg-gray-100">
-          {image ? (
+        {/* Image placeholder or real image */}
+        <div className="relative overflow-hidden" style={{ backgroundColor: bgColor, height: '200px' }}>
+          {isUrl ? (
             <img 
               src={image} 
               alt={name} 
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover transition-transform hover:scale-105 duration-500"
               onError={(e) => {
-                // Fallback if image fails to load
-                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x400?text=No+Image';
+                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x400?text=MicroShop';
               }}
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: bgColor }}>
+            <div className="absolute inset-0 flex items-center justify-center">
               <svg
                 width="80"
                 height="80"

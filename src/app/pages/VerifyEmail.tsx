@@ -68,7 +68,7 @@ export function VerifyEmail() {
             <h2 className="text-2xl font-bold text-[#111827] mb-2">Ups, algo salió mal</h2>
             <p className="text-[#6B7280] mb-8">{message}</p>
             <Link to="/register" className="w-full">
-              <PrimaryButton variant="outline">Volver al Registro</PrimaryButton>
+              <PrimaryButton >Volver al Registro</PrimaryButton>
             </Link>
           </div>
         )}

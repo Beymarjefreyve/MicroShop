@@ -2,30 +2,51 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Navbar } from '../components/shared/Navbar';
 import { catalogService, Product } from '../services/catalogService';
+import authService from '../services/authService';
 
 export function SellerProducts() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [productToDelete, setProductToDelete] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchSellerProducts = async () => {
-      setIsLoading(true);
+      const user = authService.getUser();
+      if (!user) {
+        // Fallback to all products if no user is logged in (for dev/demo)
+        // or redirect to login. For now let's allow viewing all if no user.
+        try {
+          setLoading(true);
+          const data = await catalogService.getProducts();
+          setProducts(data.results);
+        } catch (err: any) {
+          setError('No se pudieron cargar los productos.');
+          console.error(err);
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
       try {
-        // In a real app, we would filter by the logged-in seller's ID
-        const data = await catalogService.getProducts();
+        setLoading(true);
+        // Backend should support filtering by seller_id
+        const data = await catalogService.getProducts({ seller_id: user.id.toString() });
         setProducts(data.results);
-      } catch (error) {
-        console.error('Error fetching seller products:', error);
+      } catch (err: any) {
+        setError('No se pudieron cargar tus productos.');
+        console.error(err);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
+
     fetchSellerProducts();
-  }, []);
+  }, [navigate]);
 
   const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -46,11 +67,28 @@ export function SellerProducts() {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
-    alert(`Producto ${productToDelete} eliminado`);
-    setShowDeleteModal(false);
-    setProductToDelete(null);
+  const confirmDelete = async () => {
+    if (productToDelete === null) return;
+    try {
+      await catalogService.deleteProduct(productToDelete);
+      setProducts(prev => prev.filter(p => p.id !== productToDelete));
+      setShowDeleteModal(false);
+      setProductToDelete(null);
+    } catch (err) {
+      alert('Error al eliminar el producto');
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F9FAFB]">
+        <Navbar />
+        <div className="pt-32 flex justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2563EB]"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
@@ -74,6 +112,12 @@ export function SellerProducts() {
           </Link>
         </div>
 
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg text-center">
+            {error}
+          </div>
+        )}
+
         {/* Barra de búsqueda */}
         <div className="mb-6">
           <div className="relative max-w-md">
@@ -91,13 +135,13 @@ export function SellerProducts() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por nombre..."
-              className="w-full pl-10 pr-4 py-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent bg-white"
+              className="w-full pl-10 pr-4 py-2.5 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent bg-white shadow-sm"
             />
           </div>
         </div>
 
         {/* Tabla */}
-        <div className="bg-white rounded-xl shadow-md overflow-hidden">
+        <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-[#E5E7EB]">
@@ -124,12 +168,9 @@ export function SellerProducts() {
                   <tr key={product.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div
-                          className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
-                          style={{ backgroundColor: '#E5E7EB' }}
-                        >
+                        <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 bg-gray-100 overflow-hidden">
                           {product.image ? (
-                            <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                             <img src={product.image} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
                               <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -142,7 +183,7 @@ export function SellerProducts() {
                           <p className="text-[#111827]" style={{ fontWeight: '500' }}>
                             {product.name}
                           </p>
-                          <p className="text-[#6B7280] text-sm">{product.category_name || product.category}</p>
+                          <p className="text-[#6B7280] text-sm">{product.category_name || 'Sin categoría'}</p>
                         </div>
                       </div>
                     </td>
@@ -187,13 +228,7 @@ export function SellerProducts() {
 
           {filteredProducts.length === 0 && (
             <div className="text-center py-12">
-              <svg
-                className="mx-auto mb-4 w-16 h-16 text-[#9CA3AF]"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-              >
+              <svg className="mx-auto mb-4 w-16 h-16 text-[#9CA3AF]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
               <p className="text-[#6B7280]">No se encontraron productos</p>
@@ -205,7 +240,7 @@ export function SellerProducts() {
       {/* Modal de confirmación de eliminación */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full animate-in fade-in zoom-in duration-200">
             <h3 className="text-[#111827] mb-3" style={{ fontSize: '18px', fontWeight: '600' }}>
               ¿Eliminar producto?
             </h3>
@@ -222,7 +257,7 @@ export function SellerProducts() {
               </button>
               <button
                 onClick={confirmDelete}
-                className="flex-1 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className="flex-1 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-lg shadow-red-100"
                 style={{ fontSize: '14px', fontWeight: '500' }}
               >
                 Eliminar

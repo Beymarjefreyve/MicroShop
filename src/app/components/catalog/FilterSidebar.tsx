@@ -6,9 +6,8 @@ interface FilterSidebarProps {
   selectedRating: number;
   onRatingChange: (rating: number) => void;
   onClearFilters: () => void;
+  categories?: string[];
 }
-
-const categories = ['Electrónica', 'Ropa', 'Hogar', 'Deportes', 'Libros'];
 
 export function FilterSidebar({
   selectedCategories,
@@ -17,7 +16,8 @@ export function FilterSidebar({
   onPriceRangeChange,
   selectedRating,
   onRatingChange,
-  onClearFilters
+  onClearFilters,
+  categories = ['Electrónica', 'Ropa', 'Hogar', 'Deportes', 'Libros']
 }: FilterSidebarProps) {
   return (
     <div className="bg-white rounded-xl shadow-md p-6 sticky top-20">
@@ -63,7 +63,7 @@ export function FilterSidebar({
           <input
             type="range"
             min="0"
-            max="500"
+            max="5000"
             value={priceRange[1]}
             onChange={(e) => onPriceRangeChange([0, parseInt(e.target.value)])}
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#2563EB]"
