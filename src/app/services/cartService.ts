@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_CART_URL || 'http://localhost:8003/api/cart';
+const API_URL = import.meta.env.VITE_CART_URL || 'http://localhost:8005/api/cart';
 
 export interface CartItem {
     id: number;
