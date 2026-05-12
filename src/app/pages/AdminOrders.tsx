@@ -38,11 +38,12 @@ export function AdminOrders() {
         paymentMethod: 'Tarjeta', // Mocked as order-service doesn't store this yet
         items: o.items.map((i: any) => ({
           name: i.product_name,
+          image: i.product_image,
           quantity: i.quantity,
           price: Number(i.price_at_purchase)
         }))
       }));
-      setOrders(mappedOrders);
+      setOrders(mappedOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     } catch (e) {
       console.error('Error fetching admin orders:', e);
     } finally {

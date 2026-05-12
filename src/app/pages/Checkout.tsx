@@ -78,6 +78,7 @@ export function Checkout() {
           items: checkoutItems.map(item => ({
             product_id: item.product_id,
             product_name: item.name,
+            product_image: item.image,
             quantity: item.quantity,
             price_at_purchase: item.price
           }))

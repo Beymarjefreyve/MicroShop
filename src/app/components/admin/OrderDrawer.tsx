@@ -33,21 +33,26 @@ export function OrderDrawer({ order, isOpen, onClose }: OrderDrawerProps) {
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-40"
+        className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 transition-opacity"
         onClick={onClose}
       />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 h-full w-full max-w-2xl bg-white dark:bg-[#1F2937] shadow-xl z-50 overflow-y-auto">
-        <div className="p-6">
+      <div className="fixed right-0 top-0 h-full w-full max-w-2xl bg-white dark:bg-[#1F2937] shadow-2xl z-50 overflow-y-auto transform transition-transform duration-300">
+        <div className="p-8">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-[#111827] dark:text-white" style={{ fontSize: '20px', fontWeight: '600' }}>
-              Detalle del pedido
-            </h2>
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-[#111827] dark:text-white mb-1" style={{ fontSize: '24px', fontWeight: '700' }}>
+                Detalle del Pedido
+              </h2>
+              <p className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '14px' }}>
+                Gestiona y revisa los pormenores de la transacción
+              </p>
+            </div>
             <button
               onClick={onClose}
-              className="text-[#6B7280] dark:text-[#9CA3AF] hover:text-[#111827] dark:hover:text-white transition-colors"
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-[#6B7280] dark:text-[#9CA3AF] transition-all"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -55,150 +60,130 @@ export function OrderDrawer({ order, isOpen, onClose }: OrderDrawerProps) {
             </button>
           </div>
 
-          {/* Order Info */}
-          <div className="bg-gray-50 dark:bg-[#111827] rounded-xl p-4 mb-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '12px' }}>
-                  Número de pedido
-                </p>
-                <p className="text-[#111827] dark:text-white" style={{ fontSize: '14px', fontWeight: '600' }}>
-                  {order.id}
-                </p>
+          {/* Status Banner */}
+          <div className={`${getStatusColor(order.status)} rounded-2xl p-4 mb-8 flex items-center justify-between`}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
               </div>
               <div>
-                <p className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '12px' }}>
-                  Fecha
-                </p>
-                <p className="text-[#111827] dark:text-white" style={{ fontSize: '14px' }}>
-                  {new Date(order.date).toLocaleDateString('es-ES', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric'
-                  })}
-                </p>
+                <p className="font-bold uppercase tracking-wider" style={{ fontSize: '12px', opacity: 0.8 }}>Estado Actual</p>
+                <p className="text-lg font-bold capitalize">{order.status}</p>
               </div>
-              <div>
-                <p className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '12px' }}>
-                  Estado
-                </p>
-                <span
-                  className={`inline-block px-2 py-1 rounded-lg ${getStatusColor(order.status)} capitalize`}
-                  style={{ fontSize: '12px', fontWeight: '500' }}
-                >
-                  {order.status}
-                </span>
+            </div>
+            <div className="text-right">
+              <p className="font-bold uppercase tracking-wider" style={{ fontSize: '12px', opacity: 0.8 }}>Total del Pedido</p>
+              <p className="text-xl font-bold">${order.total.toFixed(2)}</p>
+            </div>
+          </div>
+
+          {/* Grid Layout for Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="bg-gray-50 dark:bg-[#111827] rounded-2xl p-5 border border-gray-100 dark:border-gray-800">
+              <h3 className="text-sm font-bold text-[#6B7280] dark:text-[#9CA3AF] uppercase tracking-widest mb-4">Información General</h3>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '11px' }}>ID DE PEDIDO</p>
+                  <p className="text-[#111827] dark:text-white font-mono font-bold">#{order.id}</p>
+                </div>
+                <div>
+                  <p className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '11px' }}>FECHA DE COMPRA</p>
+                  <p className="text-[#111827] dark:text-white">
+                    {new Date(order.date).toLocaleDateString('es-ES', {
+                      day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                    })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '11px' }}>MÉTODO DE PAGO</p>
+                  <p className="text-[#111827] dark:text-white flex items-center gap-2">
+                    <span className="text-lg">{order.paymentMethod === 'Nequi' ? '🅽' : '💳'}</span>
+                    {order.paymentMethod}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '12px' }}>
-                  Método de pago
-                </p>
-                <p className="text-[#111827] dark:text-white" style={{ fontSize: '14px' }}>
-                  {order.paymentMethod === 'Nequi' ? '🅽 ' : '💳 '}
-                  {order.paymentMethod}
-                </p>
+            </div>
+
+            <div className="bg-gray-50 dark:bg-[#111827] rounded-2xl p-5 border border-gray-100 dark:border-gray-800">
+              <h3 className="text-sm font-bold text-[#6B7280] dark:text-[#9CA3AF] uppercase tracking-widest mb-4">Cliente</h3>
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 rounded-full bg-[#2563EB]/10 flex items-center justify-center text-[#2563EB] font-bold text-lg">
+                  {order.userName.charAt(0)}
+                </div>
+                <div>
+                  <p className="text-[#111827] dark:text-white font-bold">{order.userName}</p>
+                  <p className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '13px' }}>{order.userEmail}</p>
+                </div>
+              </div>
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
+                <p className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '11px' }}>DIRECCIÓN DE ENVÍO</p>
+                <p className="text-[#111827] dark:text-white text-sm mt-1">{order.shippingAddress.address}</p>
+                <p className="text-[#6B7280] dark:text-[#9CA3AF] text-xs">{order.shippingAddress.city} • {order.shippingAddress.phone}</p>
               </div>
             </div>
           </div>
 
-          {/* Customer Info */}
-          <div className="mb-6">
-            <h3 className="text-[#111827] dark:text-white mb-3" style={{ fontSize: '16px', fontWeight: '600' }}>
-              Información del cliente
-            </h3>
-            <div className="bg-gray-50 dark:bg-[#111827] rounded-xl p-4">
-              <p className="text-[#111827] dark:text-white" style={{ fontSize: '14px', fontWeight: '500' }}>
-                {order.userName}
-              </p>
-              <p className="text-[#6B7280] dark:text-[#9CA3AF] mt-1" style={{ fontSize: '14px' }}>
-                {order.userEmail}
-              </p>
-            </div>
-          </div>
-
-          {/* Products */}
-          <div className="mb-6">
-            <h3 className="text-[#111827] dark:text-white mb-3" style={{ fontSize: '16px', fontWeight: '600' }}>
-              Productos
-            </h3>
-            <div className="space-y-3">
+          {/* Products List */}
+          <div className="mb-8">
+            <h3 className="text-sm font-bold text-[#6B7280] dark:text-[#9CA3AF] uppercase tracking-widest mb-4 px-1">Productos en el Pedido</h3>
+            <div className="space-y-4">
               {order.items.map((item, index) => (
-                <div key={index} className="flex items-center gap-4 bg-gray-50 dark:bg-[#111827] rounded-xl p-4">
-                  <div className="w-16 h-16 bg-gray-200 dark:bg-[#374151] rounded-lg flex items-center justify-center">
-                    <span className="text-2xl">📦</span>
+                <div key={index} className="flex items-center gap-5 bg-white dark:bg-[#111827] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow">
+                  <div className="w-20 h-20 bg-gray-100 dark:bg-[#374151] rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {item.image ? (
+                      <img 
+                        src={item.image.startsWith('http') ? item.image : `${import.meta.env.VITE_CATALOG_URL || 'http://localhost:8002'}${item.image}`} 
+                        alt={item.name} 
+                        className="w-full h-full object-cover" 
+                      />
+                    ) : (
+                      <span className="text-3xl">📦</span>
+                    )}
                   </div>
-                  <div className="flex-1">
-                    <p className="text-[#111827] dark:text-white" style={{ fontSize: '14px', fontWeight: '500' }}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[#111827] dark:text-white font-bold truncate" style={{ fontSize: '16px' }}>
                       {item.name}
                     </p>
-                    <p className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '12px' }}>
-                      Cantidad: {item.quantity}
+                    <div className="flex items-center gap-4 mt-1">
+                      <p className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '13px' }}>
+                        Cantidad: <span className="font-bold text-[#111827] dark:text-white">{item.quantity}</span>
+                      </p>
+                      <p className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '13px' }}>
+                        Precio Unit: <span className="font-bold text-[#111827] dark:text-white">${item.price.toFixed(2)}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[#111827] dark:text-white font-bold" style={{ fontSize: '16px' }}>
+                      ${(item.price * item.quantity).toFixed(2)}
                     </p>
                   </div>
-                  <p className="text-[#111827] dark:text-white" style={{ fontSize: '14px', fontWeight: '600' }}>
-                    ${(item.price * item.quantity).toFixed(2)}
-                  </p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Totals */}
-          <div className="bg-gray-50 dark:bg-[#111827] rounded-xl p-4 mb-6">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '14px' }}>
-                  Subtotal
-                </span>
-                <span className="text-[#111827] dark:text-white" style={{ fontSize: '14px' }}>
-                  ${subtotal.toFixed(2)}
-                </span>
+          {/* Totals Summary */}
+          <div className="bg-gray-900 text-white rounded-3xl p-8 shadow-xl">
+            <div className="space-y-3">
+              <div className="flex justify-between text-gray-400">
+                <span style={{ fontSize: '14px' }}>Subtotal</span>
+                <span className="text-white">${subtotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '14px' }}>
-                  Envío
-                </span>
-                <span className="text-[#111827] dark:text-white" style={{ fontSize: '14px' }}>
-                  ${shipping.toFixed(2)}
-                </span>
+              <div className="flex justify-between text-gray-400">
+                <span style={{ fontSize: '14px' }}>Gastos de Envío</span>
+                <span className="text-white">${shipping.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '14px' }}>
-                  IVA (19%)
-                </span>
-                <span className="text-[#111827] dark:text-white" style={{ fontSize: '14px' }}>
-                  ${tax.toFixed(2)}
-                </span>
+              <div className="flex justify-between text-gray-400 pb-4 border-b border-white/10">
+                <span style={{ fontSize: '14px' }}>Impuestos (IVA 19%)</span>
+                <span className="text-white">${tax.toFixed(2)}</span>
               </div>
-              <div className="pt-2 border-t border-[#E5E7EB] dark:border-[#374151] flex justify-between">
-                <span className="text-[#111827] dark:text-white" style={{ fontSize: '16px', fontWeight: '600' }}>
-                  Total
-                </span>
-                <span className="text-[#111827] dark:text-white" style={{ fontSize: '16px', fontWeight: '600' }}>
-                  ${total.toFixed(2)}
-                </span>
+              <div className="flex justify-between items-center pt-2">
+                <span className="text-lg font-bold">Total Final</span>
+                <span className="text-3xl font-bold text-[#3B82F6]">${total.toFixed(2)}</span>
               </div>
-            </div>
-          </div>
-
-          {/* Shipping Address */}
-          <div>
-            <h3 className="text-[#111827] dark:text-white mb-3" style={{ fontSize: '16px', fontWeight: '600' }}>
-              Dirección de envío
-            </h3>
-            <div className="bg-gray-50 dark:bg-[#111827] rounded-xl p-4">
-              <p className="text-[#111827] dark:text-white" style={{ fontSize: '14px', fontWeight: '500' }}>
-                {order.shippingAddress.name}
-              </p>
-              <p className="text-[#6B7280] dark:text-[#9CA3AF] mt-1" style={{ fontSize: '14px' }}>
-                {order.shippingAddress.address}
-              </p>
-              <p className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '14px' }}>
-                {order.shippingAddress.city}
-              </p>
-              <p className="text-[#6B7280] dark:text-[#9CA3AF] mt-2" style={{ fontSize: '14px' }}>
-                {order.shippingAddress.phone}
-              </p>
             </div>
           </div>
         </div>

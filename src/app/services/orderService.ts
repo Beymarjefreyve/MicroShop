@@ -4,6 +4,7 @@ export interface OrderItem {
     id: number;
     product_id: number;
     product_name: string;
+    product_image?: string;
     quantity: number;
     price_at_purchase: number;
 }

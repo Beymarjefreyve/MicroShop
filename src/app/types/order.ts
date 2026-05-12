@@ -15,6 +15,7 @@ export interface AdminOrder {
   paymentMethod: string;
   items: {
     name: string;
+    image?: string;
     quantity: number;
     price: number;
   }[];
