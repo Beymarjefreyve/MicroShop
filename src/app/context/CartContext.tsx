@@ -1,4 +1,4 @@
-import { createContext, useReducer, ReactNode, useEffect, useCallback } from 'react';
+import { createContext, useReducer, ReactNode, useEffect, useCallback, useState } from 'react';
 import { cartService } from '../services/cartService';
 import authService from '../services/authService';
 import { catalogService } from '../services/catalogService';
@@ -18,21 +18,22 @@ interface CartState {
   loading: boolean;
 }
 
+interface CartContextType {
+  state: CartState;
+  addItem: (product: any, quantity?: number) => Promise<void>;
+  removeItem: (itemId: number, isCheckout?: boolean) => Promise<void>;
+  removeSelectedItems: (itemIds: number[], isCheckout?: boolean) => Promise<void>;
+  updateQuantity: (itemId: number, quantity: number) => Promise<void>;
+  clearCart: (isCheckout?: boolean) => Promise<void>;
+  getTotalItems: () => number;
+  getSubtotal: () => number;
+  isActionLoading: boolean;
+}
+
 type CartAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'LOAD_CART'; payload: CartItem[] }
   | { type: 'CLEAR_CART' };
-
-interface CartContextType {
-  state: CartState;
-  addItem: (product: any, quantity?: number) => Promise<void>;
-  removeItem: (itemId: number) => Promise<void>;
-  removeSelectedItems: (itemIds: number[]) => Promise<void>;
-  updateQuantity: (itemId: number, quantity: number) => Promise<void>;
-  clearCart: () => Promise<void>;
-  getTotalItems: () => number;
-  getSubtotal: () => number;
-}
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
@@ -51,6 +52,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(cartReducer, { items: [], loading: false });
+  const [isActionLoading, setIsActionLoading] = useState(false);
 
   const fetchCart = useCallback(async () => {
     const user = authService.getUser();
@@ -60,7 +62,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SET_LOADING', payload: true });
       const cart = await cartService.getCart(user.id);
       
-      // Fetch catalog to merge image data
       let catalogProducts: any[] = [];
       try {
         const productsResponse = await catalogService.getProducts();
@@ -100,6 +101,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    setIsActionLoading(true);
     try {
       await cartService.addItem(user.id, {
         id: product.id,
@@ -107,56 +109,78 @@ export function CartProvider({ children }: { children: ReactNode }) {
         price: product.price
       }, quantity);
       await fetchCart();
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error adding item:', e);
+      alert(e.message || 'Error al agregar al carrito');
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
-  const removeItem = async (itemId: number) => {
+  const removeItem = async (itemId: number, isCheckout: boolean = false) => {
     const user = authService.getUser();
     if (!user || !user.id) return;
 
+    setIsActionLoading(true);
     try {
-      await cartService.removeItem(user.id, itemId);
+      await cartService.removeItem(user.id, itemId, isCheckout);
       await fetchCart();
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error removing item:', e);
+      alert(e.message || 'Error al eliminar el producto');
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
-  const removeSelectedItems = async (itemIds: number[]) => {
+  const removeSelectedItems = async (itemIds: number[], isCheckout: boolean = false) => {
     const user = authService.getUser();
     if (!user || !user.id) return;
 
+    setIsActionLoading(true);
     try {
-      await cartService.bulkRemoveItems(user.id, itemIds);
+      await cartService.bulkRemoveItems(user.id, itemIds, isCheckout);
       await fetchCart();
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error removing selected items:', e);
+      alert(e.message || 'Error al eliminar productos');
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
   const updateQuantity = async (itemId: number, quantity: number) => {
     const user = authService.getUser();
-    if (!user || !user.id || quantity < 1) return;
+    if (!user || !user.id) return;
+    
+    // Si la cantidad es 0, el backend lo manejará borrando y restaurando stock
+    if (quantity < 0) return;
 
+    setIsActionLoading(true);
     try {
       await cartService.updateQuantity(user.id, itemId, quantity);
       await fetchCart();
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error updating quantity:', e);
+      alert(e.message || 'Error al actualizar cantidad');
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
-  const clearCart = async () => {
+  const clearCart = async (isCheckout: boolean = false) => {
     const user = authService.getUser();
     if (!user || !user.id) return;
 
+    setIsActionLoading(true);
     try {
-      await cartService.clearCart(user.id);
+      await cartService.clearCart(user.id, isCheckout);
       dispatch({ type: 'CLEAR_CART' });
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error clearing cart:', e);
+      alert(e.message || 'Error al vaciar el carrito');
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
@@ -177,6 +201,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     clearCart,
     getTotalItems,
     getSubtotal,
+    isActionLoading
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { PrimaryButton } from '../auth/PrimaryButton';
 import { catalogService, Category } from '../../services/catalogService';
 import authService from '../../services/authService';
+import noImage from '../../../assets/no-image.png';
 
 interface ProductFormProps {
   mode: 'create' | 'edit';
@@ -248,8 +249,13 @@ export function ProductForm({ mode, productId, initialData }: ProductFormProps) 
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             {existingImages.map((img) => (
-              <div key={`exist-${img.id}`} className="relative h-24 border rounded-lg overflow-hidden group">
-                <img src={img.image} alt="Producto" className="w-full h-full object-cover" />
+              <div key={`exist-${img.id}`} className="relative h-24 border rounded-lg overflow-hidden group bg-gray-50">
+                <img 
+                  src={img.image} 
+                  alt="Producto" 
+                  className="w-full h-full object-cover"
+                  onError={(e) => (e.target as HTMLImageElement).src = noImage}
+                />
                 <button
                   type="button"
                   className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -270,7 +276,7 @@ export function ProductForm({ mode, productId, initialData }: ProductFormProps) 
               </div>
             ))}
             {newImages.map((file, i) => (
-              <div key={`new-${i}`} className="relative h-24 border rounded-lg overflow-hidden group">
+              <div key={`new-${i}`} className="relative h-24 border rounded-lg overflow-hidden group bg-gray-50">
                 <img src={URL.createObjectURL(file)} alt="Nueva" className="w-full h-full object-cover" />
                 <button
                   type="button"

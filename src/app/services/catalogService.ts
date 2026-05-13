@@ -38,6 +38,14 @@ export interface PaginatedResponse<T> {
   results: T[];
 }
 
+const formatImageUrl = (url: string | null | undefined): string => {
+  if (!url) return '';
+  if (url.startsWith('http')) return url;
+  // Prepend backend base URL to relative media paths
+  const baseUrl = API_URL.replace('/api', '');
+  return `${baseUrl}${url}`;
+};
+
 export const catalogService = {
   async getProducts(params?: Record<string, string>): Promise<PaginatedResponse<Product>> {
     const queryString = params ? '?' + new URLSearchParams(params).toString() : '';
@@ -55,15 +63,9 @@ export const catalogService = {
       price: typeof p.price === 'string' ? parseFloat(p.price) : p.price,
       images: p.images ? p.images.map((img: any) => ({
         ...img,
-        image: img.image && !img.image.startsWith('http') 
-          ? `${API_URL.replace('/api', '')}${img.image}` 
-          : img.image
+        image: formatImageUrl(img.image)
       })) : [],
-      image: p.image && !p.image.startsWith('http')
-        ? `${API_URL.replace('/api', '')}${p.image}`
-        : (p.image || (p.images && p.images[0]?.image && !p.images[0].image.startsWith('http')
-          ? `${API_URL.replace('/api', '')}${p.images[0].image}`
-          : p.images?.[0]?.image))
+      image: formatImageUrl(p.image || (p.images && p.images[0]?.image))
     }));
 
     return {
@@ -96,18 +98,12 @@ export const catalogService = {
     const data = await response.json();
     return { 
       ...data, 
-      price: parseFloat(data.price),
-      image: data.image && !data.image.startsWith('http')
-        ? `${API_URL.replace('/api', '')}${data.image}`
-        : (data.image || (data.images && data.images[0]?.image && !data.images[0].image.startsWith('http')
-          ? `${API_URL.replace('/api', '')}${data.images[0].image}`
-          : data.images?.[0]?.image)),
+      price: typeof data.price === 'string' ? parseFloat(data.price) : data.price,
       images: data.images ? data.images.map((img: any) => ({
         ...img,
-        image: img.image && !img.image.startsWith('http')
-          ? `${API_URL.replace('/api', '')}${img.image}`
-          : img.image
-      })) : []
+        image: formatImageUrl(img.image)
+      })) : [],
+      image: formatImageUrl(data.image || (data.images && data.images[0]?.image))
     };
   },
 
@@ -118,9 +114,7 @@ export const catalogService = {
     const results = Array.isArray(data) ? data : (data.results || []);
     return results.map((img: any) => ({
       ...img,
-      image: img.image && !img.image.startsWith('http')
-        ? `${API_URL.replace('/api', '')}${img.image}`
-        : img.image
+      image: formatImageUrl(img.image)
     }));
   },
 
@@ -131,22 +125,19 @@ export const catalogService = {
       headers: isFormData ? undefined : { 'Content-Type': 'application/json' },
       body: isFormData ? productData : JSON.stringify(productData),
     });
-    if (!response.ok) throw new Error('Failed to create product');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to create product');
+    }
     const data = await response.json();
     return { 
       ...data, 
-      price: parseFloat(data.price),
+      price: typeof data.price === 'string' ? parseFloat(data.price) : data.price,
       images: data.images ? data.images.map((img: any) => ({
         ...img,
-        image: img.image && !img.image.startsWith('http') 
-          ? `${API_URL.replace('/api', '')}${img.image}` 
-          : img.image
+        image: formatImageUrl(img.image)
       })) : [],
-      image: data.image && !data.image.startsWith('http')
-        ? `${API_URL.replace('/api', '')}${data.image}`
-        : (data.image || (data.images && data.images[0]?.image && !data.images[0].image.startsWith('http')
-          ? `${API_URL.replace('/api', '')}${data.images[0].image}`
-          : data.images?.[0]?.image))
+      image: formatImageUrl(data.image || (data.images && data.images[0]?.image))
     };
   },
 
@@ -159,23 +150,17 @@ export const catalogService = {
     });
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(JSON.stringify(errorData) || 'Failed to update product');
+      throw new Error(errorData.detail || 'Failed to update product');
     }
     const data = await response.json();
     return { 
       ...data, 
-      price: parseFloat(data.price),
+      price: typeof data.price === 'string' ? parseFloat(data.price) : data.price,
       images: data.images ? data.images.map((img: any) => ({
         ...img,
-        image: img.image && !img.image.startsWith('http') 
-          ? `${API_URL.replace('/api', '')}${img.image}` 
-          : img.image
+        image: formatImageUrl(img.image)
       })) : [],
-      image: data.image && !data.image.startsWith('http')
-        ? `${API_URL.replace('/api', '')}${data.image}`
-        : (data.image || (data.images && data.images[0]?.image && !data.images[0].image.startsWith('http')
-          ? `${API_URL.replace('/api', '')}${data.images[0].image}`
-          : data.images?.[0]?.image))
+      image: formatImageUrl(data.image || (data.images && data.images[0]?.image))
     };
   },
 

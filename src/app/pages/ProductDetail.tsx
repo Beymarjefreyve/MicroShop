@@ -5,6 +5,7 @@ import { StarRating } from '../components/catalog/StarRating';
 import { ProductCard } from '../components/catalog/ProductCard';
 import { CartContext } from '../context/CartContext';
 import { catalogService, Product } from '../services/catalogService';
+import noImage from '../../assets/no-image.png';
 
 const imageColors: Record<string, string> = {
   laptop: '#3B82F6',
@@ -90,8 +91,8 @@ export function ProductDetail() {
   }
 
   const mainImage = selectedImage || product.image || '';
-  const isUrl = mainImage && (mainImage.startsWith('http') || mainImage.startsWith('/media'));
-  const bgColor = !isUrl ? (imageColors[mainImage || ''] || '#9CA3AF') : 'transparent';
+  const isUrl = mainImage && (mainImage.startsWith('http') || mainImage.startsWith('/media') || mainImage.includes('/') || mainImage.includes('.'));
+  const bgColor = !isUrl ? (imageColors[mainImage || ''] || '#F3F4F6') : 'transparent';
 
   const handleQuantityChange = (delta: number) => {
     setQuantity((prev) => Math.max(1, Math.min(product.stock, prev + delta)));
@@ -115,16 +116,16 @@ export function ProductDetail() {
           {/* Imágenes */}
           <div>
             <div
-              className="rounded-xl mb-4 flex items-center justify-center overflow-hidden"
+              className="rounded-xl mb-4 flex items-center justify-center overflow-hidden bg-gray-50 shadow-inner"
               style={{ backgroundColor: bgColor, height: '400px' }}
             >
-              {isUrl ? (
+              {isUrl || mainImage === '' ? (
                 <img 
-                  src={mainImage} 
+                  src={mainImage || noImage} 
                   alt={product.name} 
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/600x600?text=MicroShop';
+                    (e.target as HTMLImageElement).src = noImage;
                   }}
                 />
               ) : (
@@ -143,23 +144,34 @@ export function ProductDetail() {
                   <div
                     key={i}
                     onClick={() => setSelectedImage(img.image)}
-                    className={`rounded-lg cursor-pointer border-2 transition-all overflow-hidden ${
+                    className={`rounded-lg cursor-pointer border-2 transition-all overflow-hidden bg-gray-50 ${
                       (selectedImage || product.image) === img.image
                         ? 'border-[#2563EB] shadow-md'
                         : 'border-transparent hover:border-[#2563EB]'
                     }`}
                     style={{ height: '80px' }}
                   >
-                    <img src={img.image} alt="" className="w-full h-full object-cover" />
+                    <img 
+                      src={img.image} 
+                      alt="" 
+                      className="w-full h-full object-cover" 
+                      onError={(e) => (e.target as HTMLImageElement).src = noImage}
+                    />
                   </div>
                 ))
               ) : (
                 [1, 2, 3, 4].map((i) => (
                   <div
                     key={i}
-                    className="rounded-lg cursor-pointer border-2 border-transparent hover:border-[#2563EB] transition-colors"
-                    style={{ backgroundColor: bgColor, height: '80px' }}
-                  />
+                    className="rounded-lg border-2 border-transparent bg-gray-100 flex items-center justify-center"
+                    style={{ height: '80px' }}
+                  >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                      <circle cx="8.5" cy="8.5" r="1.5" />
+                      <path d="M21 15l-5-5L5 21" />
+                    </svg>
+                  </div>
                 ))
               )}
             </div>
@@ -252,7 +264,7 @@ export function ProductDetail() {
           </div>
         </div>
 
-        {/* Reseñas (Mocked for now as catalog-service might not handle reviews yet) */}
+        {/* Reseñas (Mocked) */}
         <div className="bg-white rounded-xl shadow-md p-6 mb-8">
           <h2 className="text-[#111827] mb-6" style={{ fontSize: '22px', fontWeight: '600' }}>
             Reseñas de clientes

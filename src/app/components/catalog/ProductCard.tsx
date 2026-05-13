@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 import { useContext, useState } from 'react';
 import { StarRating } from './StarRating';
 import { CartContext } from '../../context/CartContext';
+import noImage from '../../../assets/no-image.png';
 
 interface ProductCardProps {
   id: number;
@@ -32,22 +33,22 @@ export function ProductCard({ id, name, price, rating, stock, image }: ProductCa
   const [isAdding, setIsAdding] = useState(false);
   const isOutOfStock = stock === 0;
   
-  // If image is a URL, use it; otherwise use color placeholder
-  const isUrl = image && (image.startsWith('http') || image.startsWith('/media'));
-  const bgColor = !isUrl ? (imageColors[image] || '#9CA3AF') : 'transparent';
+  // If image is a URL or a media path, use it; otherwise use color placeholder
+  const isUrl = image && (image.startsWith('http') || image.startsWith('/media') || image.includes('/') || image.includes('.'));
+  const bgColor = !isUrl ? (imageColors[image] || '#F3F4F6') : 'transparent';
 
   return (
     <Link to={`/product/${id}`}>
       <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden h-full flex flex-col">
         {/* Image placeholder or real image */}
-        <div className="relative overflow-hidden" style={{ backgroundColor: bgColor, height: '200px' }}>
-          {isUrl ? (
+        <div className="relative overflow-hidden bg-gray-50" style={{ backgroundColor: bgColor, height: '200px' }}>
+          {isUrl || image === '' ? (
             <img 
-              src={image} 
+              src={image || noImage} 
               alt={name} 
               className="w-full h-full object-cover transition-transform hover:scale-105 duration-500"
               onError={(e) => {
-                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x400?text=MicroShop';
+                (e.target as HTMLImageElement).src = noImage;
               }}
             />
           ) : (

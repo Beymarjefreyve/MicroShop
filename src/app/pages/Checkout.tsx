@@ -27,7 +27,6 @@ export function Checkout() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
@@ -84,7 +83,8 @@ export function Checkout() {
           }))
         });
         
-        await removeSelectedItems(selectedItemIds);
+        // IMPORTANT: Use isCheckout = true to avoid restoring stock
+        await removeSelectedItems(selectedItemIds, true);
         navigate('/orders');
       } catch (e: any) {
         console.error('Error creating order:', e);
@@ -104,12 +104,9 @@ export function Checkout() {
     <>
       <Navbar />
       <div className="min-h-screen bg-gray-50 pt-16">
-
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Formulario */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Productos del carrito */}
               <div className="bg-white border border-[#E5E7EB] rounded-xl p-6">
                 <h2 className="text-xl text-[#111827] font-semibold mb-4">
                   Productos ({checkoutItems.length})
@@ -142,7 +139,6 @@ export function Checkout() {
                 </div>
               </div>
 
-              {/* Dirección de envío */}
               <div className="bg-white border border-[#E5E7EB] rounded-xl p-6">
                 <h2 className="text-xl text-[#111827] font-semibold mb-4">
                   Dirección de envío
@@ -258,7 +254,6 @@ export function Checkout() {
                 </div>
               </div>
 
-              {/* Botones */}
               <div className="flex gap-4">
                 <button
                   onClick={() => navigate('/cart')}
@@ -286,7 +281,6 @@ export function Checkout() {
               </div>
             </div>
 
-            {/* Resumen */}
             <div className="lg:col-span-1">
               <OrderSummary subtotal={subtotal} showActions={false} />
             </div>
