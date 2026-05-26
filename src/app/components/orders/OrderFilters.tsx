@@ -18,9 +18,12 @@ export function OrderFilters({
   onClearFilters,
 }: OrderFiltersProps) {
   const statuses = [
-    { value: 'todos', label: 'Todos' },
+    { value: 'todos',     label: 'Todos' },
     { value: 'pendiente', label: '⏳ Pendiente de pago' },
-    { value: 'pagado', label: '✅ Pagado' },
+    { value: 'pagado',    label: '✅ Pagado' },
+    { value: 'procesando',label: '🔄 Procesando' },
+    { value: 'enviado',   label: '🚚 Enviado' },
+    { value: 'entregado', label: '📦 Entregado' },
     { value: 'cancelado', label: '❌ Cancelado' },
   ];
 

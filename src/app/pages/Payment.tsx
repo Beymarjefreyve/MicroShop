@@ -1,87 +1,71 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { Navbar } from '../components/shared/Navbar';
-import { OrderSummary } from '../components/cart/OrderSummary';
-import { PaymentMethodCard } from '../components/cart/PaymentMethodCard';
-import { CreditCardPreview } from '../components/cart/CreditCardPreview';
 import { orderService } from '../services/orderService';
+import { paymentService } from '../services/paymentService';
 import authService from '../services/authService';
 
+type Step = 'email' | 'otp' | 'success';
+
 export function Payment() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
   const [order, setOrder] = useState<any>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'nequi' | 'card'>('card');
+  const [step, setStep] = useState<Step>('email');
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showSummary, setShowSummary] = useState(false);
+  const [error, setError] = useState('');
+  const [paymentId, setPaymentId] = useState<number | null>(null);
+
+  // Pre-fill email from logged-in user
+  useEffect(() => {
+    const user = authService.getUser();
+    if (user?.email) setEmail(user.email);
+  }, []);
 
   useEffect(() => {
-    if (!id) {
-      navigate('/orders');
-      return;
-    }
-    const fetchOrder = async () => {
-      try {
-        const data = await orderService.getOrderById(Number(id));
-        setOrder(data);
-      } catch (e) {
-        console.error('Error fetching order:', e);
-        navigate('/orders');
-      }
-    };
-    fetchOrder();
+    if (!id) { navigate('/orders'); return; }
+    orderService.getOrderById(Number(id))
+      .then(setOrder)
+      .catch(() => navigate('/orders'));
   }, [id, navigate]);
 
-  // Nequi form
-  const [nequiPhone, setNequiPhone] = useState('');
-
-  // Card form
-  const [cardData, setCardData] = useState({
-    number: '',
-    name: '',
-    expiry: '',
-    cvv: '',
-  });
-
-  const handleCardChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    let formattedValue = value;
-
-    if (name === 'number') {
-      // Format card number as 4-4-4-4
-      formattedValue = value
-        .replace(/\s/g, '')
-        .replace(/(\d{4})/g, '$1 ')
-        .trim()
-        .slice(0, 19);
-    } else if (name === 'expiry') {
-      // Format expiry as MM/YY
-      formattedValue = value
-        .replace(/\D/g, '')
-        .replace(/(\d{2})(\d)/, '$1/$2')
-        .slice(0, 5);
-    } else if (name === 'cvv') {
-      formattedValue = value.replace(/\D/g, '').slice(0, 3);
-    }
-
-    setCardData((prev) => ({ ...prev, [name]: formattedValue }));
-  };
-
-  const handlePayment = async () => {
-    const user = authService.getUser();
-    if (!user || !user.id || !id) {
-      alert('Debes iniciar sesión para realizar el pago');
+  // Step 1 — send OTP to email
+  const handleSendOtp = async () => {
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Ingresa un correo electrónico válido');
       return;
     }
-
+    setError('');
     setLoading(true);
     try {
-      await orderService.updateStatus(Number(id), 'PAGADO', 'Pago simulado desde portal', paymentMethod === 'card' ? 'Tarjeta' : 'Nequi');
-      alert('¡Pago exitoso!');
-      navigate('/orders');
+      const result = await paymentService.initiatePayment(id!, email);
+      setPaymentId(result.paymentId);
+      setStep('otp');
     } catch (e: any) {
-      console.error('Error procesando pago:', e);
-      alert('Hubo un error al procesar el pago. Por favor intente de nuevo.');
+      setError(e.message || 'Error al enviar el código. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 2 — confirm OTP
+  const handleConfirmOtp = async () => {
+    if (otp.length !== 6) {
+      setError('El código debe tener 6 dígitos');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      await paymentService.confirmPayment(id!, otp);
+      // Mark order as PAGADO in order service
+      await orderService.updateStatus(Number(id), 'PAGADO', 'Pago confirmado con OTP por email', 'Email OTP');
+      setStep('success');
+    } catch (e: any) {
+      setError(e.message || 'Código incorrecto. Verifica tu correo e intenta de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -90,223 +74,157 @@ export function Payment() {
   if (!order) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2563EB]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2563EB]" />
       </div>
     );
   }
 
-  const subtotal = Number(order.total_amount) - Number(order.tax_amount || 0);
-  const total = Number(order.total_amount);
-
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-gray-50 pt-16">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Payment form */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Payment method selection */}
-              <div className="space-y-4">
-                <h2 className="text-2xl text-[#111827] font-bold">Método de pago</h2>
+      <div className="min-h-screen bg-gray-50 pt-16 flex items-center justify-center px-4">
+        <div className="w-full max-w-md">
 
-                {/* Nequi */}
-                <PaymentMethodCard
-                  id="nequi"
-                  title="Nequi"
-                  description="Recibirás una solicitud de pago en tu app Nequi"
-                  badge="Pago instantáneo"
-                  selected={paymentMethod === 'nequi'}
-                  onSelect={() => setPaymentMethod('nequi')}
-                  icon={
-                    <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center">
-                      <span className="text-white text-xl font-bold">N</span>
-                    </div>
-                  }
-                />
-
-                {paymentMethod === 'nequi' && (
-                  <div className="ml-14 bg-gray-50 p-4 rounded-lg border border-[#E5E7EB]">
-                    <label className="block text-[#111827] text-sm font-medium mb-2">
-                      Número de teléfono
-                    </label>
-                    <input
-                      type="tel"
-                      value={nequiPhone}
-                      onChange={(e) => setNequiPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      placeholder="3001234567"
-                      className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                    />
-                  </div>
-                )}
-
-                {/* Credit/Debit Card */}
-                <PaymentMethodCard
-                  id="card"
-                  title="Tarjeta de crédito o débito"
-                  selected={paymentMethod === 'card'}
-                  onSelect={() => setPaymentMethod('card')}
-                  icon={
-                    <div className="flex gap-2">
-                      <svg width="32" height="20" viewBox="0 0 32 20" fill="none">
-                        <rect width="32" height="20" rx="4" fill="#1434CB" />
-                        <circle cx="12" cy="10" r="5" fill="#EB001B" />
-                        <circle cx="20" cy="10" r="5" fill="#F79E1B" opacity="0.8" />
-                      </svg>
-                    </div>
-                  }
-                />
-
-                {paymentMethod === 'card' && (
-                  <div className="ml-14 space-y-6">
-                    {/* Card preview */}
-                    <CreditCardPreview
-                      cardNumber={cardData.number}
-                      cardName={cardData.name}
-                      expiryDate={cardData.expiry}
-                    />
-
-                    {/* Card form */}
-                    <div className="bg-gray-50 p-4 rounded-lg border border-[#E5E7EB] space-y-4">
-                      <div>
-                        <label className="block text-[#111827] text-sm font-medium mb-2">
-                          Número de tarjeta
-                        </label>
-                        <input
-                          type="text"
-                          name="number"
-                          value={cardData.number}
-                          onChange={handleCardChange}
-                          placeholder="1234 5678 9012 3456"
-                          className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[#111827] text-sm font-medium mb-2">
-                          Nombre en la tarjeta
-                        </label>
-                        <input
-                          type="text"
-                          name="name"
-                          value={cardData.name}
-                          onChange={handleCardChange}
-                          placeholder="JUAN PEREZ"
-                          className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                          style={{ textTransform: 'uppercase' }}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-[#111827] text-sm font-medium mb-2">
-                            Fecha de vencimiento
-                          </label>
-                          <input
-                            type="text"
-                            name="expiry"
-                            value={cardData.expiry}
-                            onChange={handleCardChange}
-                            placeholder="MM/AA"
-                            className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[#111827] text-sm font-medium mb-2">
-                            CVV
-                          </label>
-                          <input
-                            type="text"
-                            name="cvv"
-                            value={cardData.cvv}
-                            onChange={handleCardChange}
-                            placeholder="123"
-                            className="w-full px-4 py-2 border border-[#E5E7EB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+          {/* Progress steps */}
+          <div className="flex items-center justify-center gap-2 mb-8">
+            {(['email', 'otp', 'success'] as Step[]).map((s, i) => (
+              <div key={s} className="flex items-center gap-2">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
+                  step === s ? 'bg-[#2563EB] text-white' :
+                  (['email', 'otp', 'success'].indexOf(step) > i) ? 'bg-[#10b981] text-white' :
+                  'bg-gray-200 text-gray-500'
+                }`}>
+                  {(['email', 'otp', 'success'].indexOf(step) > i) ? '✓' : i + 1}
+                </div>
+                {i < 2 && <div className={`w-12 h-1 rounded ${(['email', 'otp', 'success'].indexOf(step) > i) ? 'bg-[#10b981]' : 'bg-gray-200'}`} />}
               </div>
+            ))}
+          </div>
 
-              {/* Resumen del pedido - Mobile/Accordion */}
-              <div className="lg:hidden">
+          <div className="bg-white rounded-2xl shadow-sm border border-[#E5E7EB] p-8">
+
+            {/* Order summary header */}
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2">
+                  <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                  <line x1="1" y1="10" x2="23" y2="10" />
+                </svg>
+              </div>
+              <p className="text-[#6B7280] text-sm">Pedido #{id}</p>
+              <p className="text-[#111827] text-2xl font-bold mt-1">
+                ${Number(order.total_amount).toFixed(2)}
+              </p>
+            </div>
+
+            {/* ── STEP 1: Email ── */}
+            {step === 'email' && (
+              <div>
+                <h2 className="text-[#111827] text-lg font-semibold mb-1">Confirma tu correo</h2>
+                <p className="text-[#6B7280] text-sm mb-6">
+                  Te enviaremos un código de 6 dígitos para confirmar el pago.
+                </p>
+
+                <label className="block text-[#111827] text-sm font-medium mb-2">
+                  Correo electrónico
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); setError(''); }}
+                  placeholder="tu@correo.com"
+                  className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-[#111827] ${error ? 'border-red-400' : 'border-[#E5E7EB]'}`}
+                  onKeyDown={e => e.key === 'Enter' && handleSendOtp()}
+                />
+                {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+
                 <button
-                  onClick={() => setShowSummary(!showSummary)}
-                  className="w-full bg-white border border-[#E5E7EB] rounded-xl p-4 flex justify-between items-center"
+                  onClick={handleSendOtp}
+                  disabled={loading}
+                  className="w-full mt-6 bg-[#2563EB] text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  <span className="text-[#111827] font-semibold">
-                    Ver resumen del pedido
-                  </span>
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#111827"
-                    strokeWidth="2"
-                    className={`transition-transform ${showSummary ? 'rotate-180' : ''}`}
-                  >
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
+                  {loading ? (
+                    <><svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" className="opacity-75"/></svg>Enviando...</>
+                  ) : 'Enviar código'}
                 </button>
-                {showSummary && (
-                  <div className="mt-4">
-                    <OrderSummary subtotal={subtotal} showActions={false} />
-                  </div>
-                )}
-              </div>
 
-              {/* Buttons */}
-              <div className="flex gap-4">
                 <button
                   onClick={() => navigate('/orders')}
-                  className="flex-1 border-2 border-[#E5E7EB] text-[#6B7280] py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-                  disabled={loading}
+                  className="w-full mt-3 text-[#6B7280] py-2 text-sm hover:text-[#111827] transition-colors"
                 >
                   Cancelar
                 </button>
+              </div>
+            )}
+
+            {/* ── STEP 2: OTP ── */}
+            {step === 'otp' && (
+              <div>
+                <h2 className="text-[#111827] text-lg font-semibold mb-1">Ingresa el código</h2>
+                <p className="text-[#6B7280] text-sm mb-1">
+                  Enviamos un código de 6 dígitos a:
+                </p>
+                <p className="text-[#2563EB] text-sm font-semibold mb-6">{email}</p>
+
+                <label className="block text-[#111827] text-sm font-medium mb-2">
+                  Código OTP
+                </label>
+                <input
+                  type="text"
+                  value={otp}
+                  onChange={e => { setOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(''); }}
+                  placeholder="000000"
+                  maxLength={6}
+                  className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2563EB] text-[#111827] text-center text-2xl font-bold tracking-[12px] ${error ? 'border-red-400' : 'border-[#E5E7EB]'}`}
+                  onKeyDown={e => e.key === 'Enter' && handleConfirmOtp()}
+                />
+                {error && <p className="text-red-500 text-sm mt-2 text-center">{error}</p>}
+
                 <button
-                  onClick={handlePayment}
-                  disabled={loading}
-                  className="flex-1 bg-[#2563EB] text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  onClick={handleConfirmOtp}
+                  disabled={loading || otp.length !== 6}
+                  className="w-full mt-6 bg-[#2563EB] text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {loading ? (
-                    <>
-                      <svg
-                        className="animate-spin h-5 w-5 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        />
-                      </svg>
-                      Procesando...
-                    </>
-                  ) : (
-                    `Pagar $${total.toFixed(2)}`
-                  )}
+                    <><svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" className="opacity-75"/></svg>Verificando...</>
+                  ) : `Confirmar pago $${Number(order.total_amount).toFixed(2)}`}
+                </button>
+
+                <button
+                  onClick={() => { setStep('email'); setOtp(''); setError(''); }}
+                  className="w-full mt-3 text-[#6B7280] py-2 text-sm hover:text-[#111827] transition-colors"
+                >
+                  ← Cambiar correo
                 </button>
               </div>
-            </div>
+            )}
 
-            {/* Resumen - Desktop */}
-            <div className="hidden lg:block lg:col-span-1">
-              <OrderSummary subtotal={subtotal} showActions={false} />
-            </div>
+            {/* ── STEP 3: Success ── */}
+            {step === 'success' && (
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+                <h2 className="text-[#111827] text-xl font-bold mb-2">¡Pago confirmado!</h2>
+                <p className="text-[#6B7280] text-sm mb-6">
+                  Tu pedido #{id} ha sido pagado exitosamente.
+                </p>
+                <button
+                  onClick={() => navigate(`/orders/${id}`)}
+                  className="w-full bg-[#2563EB] text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  Ver mi pedido
+                </button>
+                <button
+                  onClick={() => navigate('/catalog')}
+                  className="w-full mt-3 text-[#6B7280] py-2 text-sm hover:text-[#111827] transition-colors"
+                >
+                  Seguir comprando
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

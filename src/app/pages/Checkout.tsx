@@ -14,6 +14,7 @@ export function Checkout() {
   const selectedItemIds: number[] = location.state?.selectedItemIds || [];
   const checkoutItems = state.items.filter(item => selectedItemIds.includes(item.id));
   const [loading, setLoading] = useState(false);
+  const [orderCreated, setOrderCreated] = useState(false); // evita el guard de carrito vacío
   const [formData, setFormData] = useState({
     fullName: '',
     address: '',
@@ -67,7 +68,7 @@ export function Checkout() {
 
       setLoading(true);
       try {
-        await orderService.createOrder({
+        const order = await orderService.createOrder({
           user_id: user.id,
           user_name: user.name || '',
           user_email: user.email || '',
@@ -83,9 +84,14 @@ export function Checkout() {
           }))
         });
         
-        // IMPORTANT: Use isCheckout = true to avoid restoring stock
-        await removeSelectedItems(selectedItemIds, true);
-        navigate('/orders');
+        // Marcar como creada ANTES de vaciar el carrito
+        // para que el guard "if items.length === 0" no redirija a /cart
+        setOrderCreated(true);
+
+        // Vaciar carrito en background — no bloqueamos la navegación
+        removeSelectedItems(selectedItemIds, true).catch(console.error);
+
+        navigate(`/orders/${order.id}/pay`);
       } catch (e: any) {
         console.error('Error creating order:', e);
         alert(`Hubo un error al procesar el pedido: ${e.message}`);
@@ -95,7 +101,7 @@ export function Checkout() {
     }
   };
 
-  if (state.items.length === 0) {
+  if (state.items.length === 0 && !orderCreated) {
     navigate('/cart');
     return null;
   }

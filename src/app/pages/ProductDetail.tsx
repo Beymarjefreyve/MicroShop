@@ -22,6 +22,8 @@ const imageColors: Record<string, string> = {
   rope: '#14B8A6'
 };
 
+const CATALOG_URL = import.meta.env.VITE_CATALOG_URL || 'http://localhost:8002/api';
+
 export function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -37,6 +39,12 @@ export function ProductDetail() {
   const [showReviewForm, setShowReviewForm] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [sellerStats, setSellerStats] = useState<{
+    seller_name: string;
+    total_orders: number;
+    total_units_sold: number;
+    total_products: number;
+  } | null>(null);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -51,6 +59,19 @@ export function ProductDetail() {
           category: data.category.toString()
         });
         setRelatedProducts(related.results.filter(p => p.id !== data.id).slice(0, 4));
+
+        // Fetch seller info + sales stats
+        if (data.seller_id) {
+          try {
+            const resp = await fetch(`${CATALOG_URL}/products/seller_info/?seller_id=${data.seller_id}`);
+            if (resp.ok) {
+              const stats = await resp.json();
+              setSellerStats(stats);
+            }
+          } catch (e) {
+            console.warn('No se pudo cargar info del vendedor', e);
+          }
+        }
       } catch (err: any) {
         setError('No se pudo cargar el producto.');
         console.error(err);
@@ -61,6 +82,26 @@ export function ProductDetail() {
 
     fetchProduct();
   }, [id]);
+
+  // Refrescar estadísticas del vendedor cada 30s mientras el usuario está en la página
+  useEffect(() => {
+    if (!product?.seller_id) return;
+
+    const refreshStats = async () => {
+      try {
+        const resp = await fetch(`${CATALOG_URL}/products/seller_info/?seller_id=${product.seller_id}`);
+        if (resp.ok) {
+          const stats = await resp.json();
+          setSellerStats(stats);
+        }
+      } catch {
+        // silencioso — no interrumpir la experiencia si falla
+      }
+    };
+
+    const interval = setInterval(refreshStats, 30000);
+    return () => clearInterval(interval);
+  }, [product?.seller_id]);
 
   if (loading) {
     return (
@@ -200,14 +241,34 @@ export function ProductDetail() {
             </p>
 
             <div className="bg-white rounded-lg p-4 mb-6 shadow-sm border border-gray-100">
-              <p className="text-[#6B7280] text-sm mb-2">Vendedor</p>
-              <div className="flex items-center gap-2">
-                <p className="text-[#111827]" style={{ fontWeight: '500' }}>
-                  {product.seller_name || 'Vendedor Verificado'}
-                </p>
-                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs" style={{ fontWeight: '500' }}>
-                  Vendedor #{product.seller_id}
-                </span>
+              <p className="text-[#6B7280] text-sm mb-3">Vendedor</p>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                {/* Nombre */}
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-full bg-[#2563EB] flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-sm font-bold">
+                      {(sellerStats?.seller_name || product.seller_name || 'V').charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <p className="text-[#111827]" style={{ fontWeight: '600', fontSize: '15px' }}>
+                    {sellerStats?.seller_name || product.seller_name || `Vendedor #${product.seller_id}`}
+                  </p>
+                </div>
+
+                {/* Ventas — solo si hay datos reales */}
+                {sellerStats !== null && (
+                  <div className="flex items-center gap-1 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    <span className="text-green-700 font-bold text-sm">
+                      {sellerStats.total_units_sold}
+                    </span>
+                    <span className="text-green-600 text-sm">
+                      {sellerStats.total_units_sold === 1 ? 'unidad vendida' : 'unidades vendidas'}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

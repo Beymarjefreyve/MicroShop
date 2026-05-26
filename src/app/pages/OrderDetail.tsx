@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router';
 import { Navbar } from '../components/shared/Navbar';
 import { CancelModal } from '../components/orders/CancelModal';
 import { Toast } from '../components/orders/Toast';
+import { OrderStatusTracker } from '../components/orders/OrderStatusTracker';
 import { orderService } from '../services/orderService';
 import { useCart } from '../hooks/useCart';
 import { catalogService } from '../services/catalogService';
@@ -39,23 +40,22 @@ export function OrderDetail() {
         shippingAddress: {
           name: data.user_name || 'Usuario',
           address: data.shipping_address,
-          city: '',
-          phone: ''
         },
-        paymentMethod: data.payment_method || 'Tarjeta',
+        paymentMethod: data.payment_method || 'Email OTP',
         items: data.items.map((i: any) => {
           const productData = catalogProducts.find(p => p.id === i.product_id);
           return {
             name: i.product_name,
             quantity: i.quantity,
             price: Number(i.price_at_purchase),
-            image: productData?.image || 'package'
+            image: productData?.image || i.product_image || 'package'
           };
         }),
-        timeline: data.history.map((h: any) => ({
+        // Historial completo para el tracker
+        history: data.history.map((h: any) => ({
           status: h.status.toLowerCase(),
           date: h.changed_at,
-          done: true
+          comment: h.comment || '',
         }))
       };
       setOrder(mappedOrder);
@@ -193,6 +193,12 @@ export function OrderDetail() {
             </div>
           </div>
         </div>
+
+        {/* Status tracker */}
+        <OrderStatusTracker
+          currentStatus={order.status}
+          history={order.history}
+        />
 
         {/* Products card */}
         <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-md mb-6">

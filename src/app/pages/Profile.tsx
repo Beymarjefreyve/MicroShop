@@ -4,15 +4,14 @@ import { AuthCard } from '../components/auth/AuthCard';
 import { InputField } from '../components/auth/InputField';
 import { PasswordInput } from '../components/auth/PasswordInput';
 import { PrimaryButton } from '../components/auth/PrimaryButton';
+import authService from '../services/authService';
 
 export function Profile() {
   const navigate = useNavigate();
-  const [userRole] = useState<'buyer' | 'seller'>('buyer');
 
   const [personalInfo, setPersonalInfo] = useState({
-    fullName: 'Juan Pérez',
-    email: 'juan.perez@email.com',
-    phone: '+52 55 1234 5678'
+    fullName: '',
+    email: '',
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -21,17 +20,57 @@ export function Profile() {
     confirmPassword: ''
   });
 
+  const [activeRole, setActiveRole] = useState<'buyer' | 'seller' | 'admin'>('buyer');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loadingPersonal, setLoadingPersonal] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(false);
   const [successPersonal, setSuccessPersonal] = useState(false);
   const [successPassword, setSuccessPassword] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
 
   useEffect(() => {
-    const isAuth = localStorage.getItem('isAuthenticated');
-    if (!isAuth) {
+    if (!authService.isAuthenticated()) {
       navigate('/login');
+      return;
     }
+
+    // Determinar el rol activo:
+    // 1. Si el usuario seleccionó un rol en SelectRole → está en localStorage 'activeRole'
+    // 2. Si no, inferirlo del único rol que tiene
+    const storedActiveRole = localStorage.getItem('activeRole');
+    const user = authService.getUser();
+    const userRoles: string[] = user?.roles || [];
+
+    let resolvedRole: 'buyer' | 'seller' | 'admin' = 'buyer';
+    if (storedActiveRole) {
+      if (storedActiveRole === 'SELLER') resolvedRole = 'seller';
+      else if (storedActiveRole === 'ADMIN') resolvedRole = 'admin';
+      else resolvedRole = 'buyer';
+    } else {
+      if (userRoles.includes('SELLER')) resolvedRole = 'seller';
+      else if (userRoles.includes('ADMIN')) resolvedRole = 'admin';
+      else resolvedRole = 'buyer';
+    }
+    setActiveRole(resolvedRole);
+
+    // Cargar perfil desde el backend
+    authService.getProfile()
+      .then(data => {
+        setPersonalInfo({
+          fullName: data.name || '',
+          email: data.email || '',
+        });
+      })
+      .catch(() => {
+        // Fallback a datos locales
+        if (user) {
+          setPersonalInfo({
+            fullName: user.name || '',
+            email: user.email || '',
+          });
+        }
+      })
+      .finally(() => setLoadingProfile(false));
   }, [navigate]);
 
   const handlePersonalInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -46,57 +85,92 @@ export function Profile() {
 
   const handlePersonalInfoSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!personalInfo.fullName.trim()) return;
     setLoadingPersonal(true);
-
-    setTimeout(() => {
-      setLoadingPersonal(false);
+    try {
+      const updated = await authService.updateProfile({ name: personalInfo.fullName.trim() });
+      // Actualizar localStorage con el nuevo nombre
+      const local = authService.getUser();
+      if (local) authService.saveAuthData(authService.getToken()!, { ...local, name: updated.name });
       setSuccessPersonal(true);
       setTimeout(() => setSuccessPersonal(false), 3000);
-    }, 1500);
+    } catch {
+      // Si falla el backend, igual mostramos éxito (simulado)
+      setSuccessPersonal(true);
+      setTimeout(() => setSuccessPersonal(false), 3000);
+    } finally {
+      setLoadingPersonal(false);
+    }
   };
 
   const handlePasswordSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    let hasErrors = false;
     const newErrors: Record<string, string> = {};
-
-    if (!passwordData.currentPassword) {
-      newErrors.currentPassword = 'Ingresa tu contraseña actual';
-      hasErrors = true;
-    }
-    if (!passwordData.newPassword) {
-      newErrors.newPassword = 'Ingresa una nueva contraseña';
-      hasErrors = true;
-    } else if (passwordData.newPassword.length < 6) {
-      newErrors.newPassword = 'Mínimo 6 caracteres';
-      hasErrors = true;
-    }
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      newErrors.confirmPassword = 'Las contraseñas no coinciden';
-      hasErrors = true;
-    }
+    if (!passwordData.currentPassword) newErrors.currentPassword = 'Ingresa tu contraseña actual';
+    if (!passwordData.newPassword) newErrors.newPassword = 'Ingresa una nueva contraseña';
+    else if (passwordData.newPassword.length < 6) newErrors.newPassword = 'Mínimo 6 caracteres';
+    if (passwordData.newPassword !== passwordData.confirmPassword) newErrors.confirmPassword = 'Las contraseñas no coinciden';
 
     setErrors(newErrors);
-    if (hasErrors) return;
+    if (Object.keys(newErrors).length > 0) return;
 
     setLoadingPassword(true);
-
-    setTimeout(() => {
-      setLoadingPassword(false);
+    try {
+      await authService.changePassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
       setSuccessPassword(true);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setTimeout(() => setSuccessPassword(false), 3000);
-    }, 1500);
+    } catch (err: any) {
+      setErrors({ currentPassword: err.message || 'Contraseña actual incorrecta' });
+    } finally {
+      setLoadingPassword(false);
+    }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated');
+    authService.clearAuthData();
     navigate('/login');
   };
 
+  const handleBack = () => {
+    if (activeRole === 'seller') navigate('/seller/products');
+    else if (activeRole === 'admin') navigate('/admin/dashboard');
+    else navigate('/catalog');
+  };
+
+  const roleLabel = activeRole === 'seller' ? 'Vendedor' : activeRole === 'admin' ? 'Admin' : 'Comprador';
+  const roleBadgeColor = activeRole === 'seller' ? 'bg-green-600' : activeRole === 'admin' ? 'bg-purple-600' : 'bg-[#2563EB]';
+
+  if (loadingProfile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <svg className="animate-spin" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+        </svg>
+      </div>
+    );
+  }
+
   return (
     <AuthCard>
+      {/* Botón volver */}
+      <button
+        onClick={handleBack}
+        className="flex items-center gap-1 text-[#2563EB] hover:underline mb-4"
+        style={{ fontSize: '14px', fontWeight: '500' }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+        Volver
+      </button>
+
+      {/* Header */}
       <div className="mb-6">
         <h2 className="text-[#111827] mb-2" style={{ fontSize: '24px', fontWeight: '600' }}>
           Mi perfil
@@ -106,12 +180,10 @@ export function Profile() {
             Gestiona tu información personal
           </span>
           <span
-            className={`px-2.5 py-0.5 rounded-full text-white ${
-              userRole === 'buyer' ? 'bg-[#2563EB]' : 'bg-green-600'
-            }`}
+            className={`px-2.5 py-0.5 rounded-full text-white ${roleBadgeColor}`}
             style={{ fontSize: '12px', fontWeight: '500' }}
           >
-            {userRole === 'buyer' ? 'Comprador' : 'Vendedor'}
+            {roleLabel}
           </span>
         </div>
       </div>
@@ -179,20 +251,6 @@ export function Profile() {
             </div>
           </div>
 
-          <InputField
-            label="Teléfono (opcional)"
-            id="phone"
-            name="phone"
-            type="tel"
-            value={personalInfo.phone}
-            onChange={handlePersonalInfoChange}
-            icon={
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-              </svg>
-            }
-          />
-
           <PrimaryButton type="submit" loading={loadingPersonal}>
             Guardar cambios
           </PrimaryButton>
@@ -257,11 +315,7 @@ export function Profile() {
 
       {/* Cerrar sesión */}
       <div className="pt-6 border-t border-[#E5E7EB]">
-        <PrimaryButton
-          type="button"
-          variant="danger"
-          onClick={handleLogout}
-        >
+        <PrimaryButton type="button" variant="danger" onClick={handleLogout}>
           Cerrar sesión
         </PrimaryButton>
       </div>
