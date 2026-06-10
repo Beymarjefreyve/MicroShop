@@ -51,9 +51,10 @@ export interface PaginatedResponse<T> {
 const formatImageUrl = (url: string | null | undefined): string => {
   if (!url) return '';
   if (url.startsWith('http')) return url;
-  // Prepend backend base URL to relative media paths
-  const baseUrl = API_URL.replace('/api/catalog', '');
-  return `${baseUrl}${url}`;
+  // Prepend backend base URL to relative media paths — ensure leading slash
+  const baseUrl = API_URL.replace('/api/catalog', '').replace(/\/$/, '');
+  const path = url.startsWith('/') ? url : `/${url}`;
+  return `${baseUrl}${path}`;
 };
 
 export const catalogService = {

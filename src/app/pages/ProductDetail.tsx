@@ -98,7 +98,9 @@ export function ProductDetail() {
         // Fetch seller info + sales stats
         if (data.seller_id) {
           try {
-            const resp = await fetch(`${CATALOG_URL}/products/seller_info/?seller_id=${data.seller_id}&product_id=${data.id}`);
+            const resp = await fetch(`${CATALOG_URL}/products/seller_info/?seller_id=${data.seller_id}&product_id=${data.id}`, {
+              headers: { 'Authorization': `Bearer ${authService.getToken()}` }
+            });
             if (resp.ok) {
               const stats = await resp.json();
               setSellerStats(stats);
@@ -124,7 +126,9 @@ export function ProductDetail() {
 
     const refreshStats = async () => {
       try {
-        const resp = await fetch(`${CATALOG_URL}/products/seller_info/?seller_id=${product.seller_id}&product_id=${product.id}`);
+        const resp = await fetch(`${CATALOG_URL}/products/seller_info/?seller_id=${product.seller_id}&product_id=${product.id}`, {
+          headers: { 'Authorization': `Bearer ${authService.getToken()}` }
+        });
         if (resp.ok) {
           const stats = await resp.json();
           setSellerStats(stats);
