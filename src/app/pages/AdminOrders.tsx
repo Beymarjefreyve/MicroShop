@@ -3,6 +3,7 @@ import { AdminLayout } from '../components/admin/AdminLayout';
 import { AdminTable } from '../components/admin/AdminTable';
 import { OrderDrawer } from '../components/admin/OrderDrawer';
 import { orderService } from '../services/orderService';
+import { formatCOP } from '../utils/format';
 
 import { AdminOrder } from '../types/order';
 
@@ -110,7 +111,7 @@ export function AdminOrders() {
     },
     {
       header: 'Total',
-      accessor: (row: AdminOrder) => `$${row.total.toFixed(2)}`,
+      accessor: (row: AdminOrder) => formatCOP(row.total),
       width: '10%'
     },
     {

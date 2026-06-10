@@ -5,6 +5,7 @@ import { OrderSummary } from '../components/cart/OrderSummary';
 import { useCart } from '../hooks/useCart';
 import { orderService } from '../services/orderService';
 import authService from '../services/authService';
+import { formatCOP } from '../utils/format';
 
 export function Checkout() {
   const navigate = useNavigate();
@@ -50,13 +51,10 @@ export function Checkout() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const subtotal = checkoutItems.reduce(
-    (total, item) => total + item.price * item.quantity,
+  const total = checkoutItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
     0
   );
-  const shipping = subtotal > 100 ? 0 : 5.0;
-  const tax = subtotal * 0.19;
-  const total = subtotal + shipping + tax;
 
   const handleContinue = async () => {
     if (validateForm()) {
@@ -73,7 +71,7 @@ export function Checkout() {
           user_name: user.name || '',
           user_email: user.email || '',
           total_amount: Number(total.toFixed(2)),
-          tax_amount: Number(tax.toFixed(2)),
+          tax_amount: 0,
           shipping_address: `${formData.fullName}, ${formData.address}, ${formData.city}, ${formData.state} CP: ${formData.zipCode}. Tel: ${formData.phone}`,
           items: checkoutItems.map(item => ({
             product_id: item.product_id,
@@ -138,7 +136,7 @@ export function Checkout() {
                         </div>
                       </div>
                       <div className="text-[#111827] font-semibold">
-                        ${(item.price * item.quantity).toFixed(2)}
+                        {formatCOP(item.price * item.quantity)}
                       </div>
                     </div>
                   ))}
@@ -288,7 +286,7 @@ export function Checkout() {
             </div>
 
             <div className="lg:col-span-1">
-              <OrderSummary subtotal={subtotal} showActions={false} />
+              <OrderSummary subtotal={total} showActions={false} />
             </div>
           </div>
         </div>

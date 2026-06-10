@@ -3,6 +3,7 @@ import { useContext, useState } from 'react';
 import { StarRating } from './StarRating';
 import { CartContext } from '../../context/CartContext';
 import noImage from '../../../assets/no-image.png';
+import { formatCOP } from '../../utils/format';
 
 interface ProductCardProps {
   id: number;
@@ -87,7 +88,7 @@ export function ProductCard({ id, name, price, rating, stock, image }: ProductCa
 
           <div className="mt-auto">
             <p className="text-[#2563EB] mb-3" style={{ fontSize: '20px', fontWeight: '700' }}>
-              ${price.toFixed(2)}
+              {formatCOP(price)}
             </p>
 
             <p className="text-[#6B7280] text-xs mb-3">
@@ -121,3 +122,4 @@ export function ProductCard({ id, name, price, rating, stock, image }: ProductCa
     </Link>
   );
 }
+

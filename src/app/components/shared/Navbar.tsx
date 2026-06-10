@@ -130,16 +130,6 @@ export function Navbar() {
                         Mis productos
                       </Link>
                     )}
-                    {isAdmin && (
-                      <Link
-                        to="/admin/dashboard"
-                        className="block px-4 py-2 text-[#2563EB] hover:bg-gray-50 transition-colors"
-                        onClick={() => setShowUserMenu(false)}
-                        style={{ fontWeight: '500' }}
-                      >
-                        🔧 Panel Admin
-                      </Link>
-                    )}
                     <hr className="my-1 border-[#E5E7EB]" />
                     <Link
                       to="/login"

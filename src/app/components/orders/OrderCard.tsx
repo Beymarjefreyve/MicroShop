@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { Order } from '../../data/orders';
 import { OrderStatusBadge } from './OrderStatusBadge';
+import { formatCOP } from '../../utils/format';
 
 interface OrderCardProps {
   order: any;
@@ -59,7 +60,7 @@ export function OrderCard({ order, onCancel }: OrderCardProps) {
 
         {/* Summary */}
         <p className="text-[#6B7280]" style={{ fontSize: '14px' }}>
-          {totalItems} {totalItems === 1 ? 'producto' : 'productos'} · ${order.total.toFixed(2)} total
+          {totalItems} {totalItems === 1 ? 'producto' : 'productos'} · {formatCOP(order.total)} total
         </p>
 
         {/* Actions */}

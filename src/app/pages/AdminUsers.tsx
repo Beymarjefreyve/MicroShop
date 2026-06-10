@@ -1,14 +1,117 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminLayout } from '../components/admin/AdminLayout';
 import { AdminTable } from '../components/admin/AdminTable';
-import { adminUsers, AdminUser } from '../data/adminUsers';
+import authService from '../services/authService';
+
+interface AdminUser {
+  id: number;
+  name: string;
+  email: string;
+  role: 'Comprador' | 'Vendedor' | 'Admin';
+  status: 'Activo' | 'Inactivo';
+  registrationDate: string;
+}
 
 export function AdminUsers() {
-  const [users, setUsers] = useState<AdminUser[]>(adminUsers);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('Todos');
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const token = authService.getToken();
+      if (!token) return;
+      
+      const response = await fetch(`${import.meta.env.VITE_AUTH_API_URL || 'http://localhost:8001/api/auth'}/users`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const mappedUsers = data.map((u: any) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          role: u.roles && u.roles.includes('ADMIN') ? 'Admin' : (u.roles && u.roles.includes('SELLER') ? 'Vendedor' : 'Comprador'),
+          status: u.enabled !== false ? 'Activo' : 'Inactivo',
+          registrationDate: u.createdAt || new Date().toISOString()
+        }));
+        setUsers(mappedUsers);
+      }
+    } catch (e) {
+      console.error('Error fetching admin users:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const handleToggleStatus = async (userId: number) => {
+    try {
+      const token = authService.getToken();
+      const userToToggle = users.find(u => u.id === userId);
+      if (!token || !userToToggle) return;
+      
+      const nextStatus = userToToggle.status === 'Activo' ? 'disable' : 'enable';
+      const response = await fetch(`${import.meta.env.VITE_AUTH_API_URL || 'http://localhost:8001/api/auth'}/users/${userId}/${nextStatus}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: u.status === 'Activo' ? 'Inactivo' : 'Activo' } : u));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleEditRole = (user: AdminUser) => {
+    setEditingUser(user);
+    setShowEditModal(true);
+  };
+
+  const handleSaveRole = async (newRole: 'Comprador' | 'Vendedor' | 'Admin') => {
+    if (editingUser) {
+      try {
+        const token = authService.getToken();
+        if (!token) return;
+        
+        const backendRole = newRole === 'Admin' ? 'ADMIN' : (newRole === 'Vendedor' ? 'SELLER' : 'BUYER');
+        const response = await fetch(`${import.meta.env.VITE_AUTH_API_URL || 'http://localhost:8001/api/auth'}/users/${editingUser.id}/roles`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify([backendRole])
+        });
+        
+        if (response.ok) {
+          setUsers(
+            users.map((user) =>
+              user.id === editingUser.id ? { ...user, role: newRole } : user
+            )
+          );
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setShowEditModal(false);
+        setEditingUser(null);
+      }
+    }
+  };
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
@@ -17,33 +120,6 @@ export function AdminUsers() {
     const matchesRole = roleFilter === 'Todos' || user.role === roleFilter;
     return matchesSearch && matchesRole;
   });
-
-  const handleToggleStatus = (userId: number) => {
-    setUsers(
-      users.map((user) =>
-        user.id === userId
-          ? { ...user, status: user.status === 'Activo' ? 'Inactivo' : 'Activo' }
-          : user
-      )
-    );
-  };
-
-  const handleEditRole = (user: AdminUser) => {
-    setEditingUser(user);
-    setShowEditModal(true);
-  };
-
-  const handleSaveRole = (newRole: 'Comprador' | 'Vendedor' | 'Admin') => {
-    if (editingUser) {
-      setUsers(
-        users.map((user) =>
-          user.id === editingUser.id ? { ...user, role: newRole } : user
-        )
-      );
-      setShowEditModal(false);
-      setEditingUser(null);
-    }
-  };
 
   const roleColors: Record<string, string> = {
     Admin: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',

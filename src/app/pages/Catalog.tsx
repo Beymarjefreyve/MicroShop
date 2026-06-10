@@ -1,24 +1,34 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Navbar } from '../components/shared/Navbar';
 import { SearchBar } from '../components/catalog/SearchBar';
+import { AiSearchBar } from '../components/catalog/AiSearchBar';
 import { FilterSidebar } from '../components/catalog/FilterSidebar';
 import { ProductCard } from '../components/catalog/ProductCard';
 import { catalogService, Product, Category } from '../services/catalogService';
+import { recommendationService } from '../services/recommendationService';
+import authService from '../services/authService';
 
 export function Catalog() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000000]);
   const [selectedRating, setSelectedRating] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
-  // Fetch products and categories on mount
+  // Estado de búsqueda IA
+  const [aiResults, setAiResults] = useState<Product[]>([]);
+  const [aiExplanation, setAiExplanation] = useState('');
+  const [aiSource, setAiSource] = useState('');
+  const [aiActive, setAiActive] = useState(false);
+
+  // Fetch products, categories, and recommendations on mount
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -29,6 +39,20 @@ export function Catalog() {
         ]);
         setProducts(productsData.results);
         setCategories(categoriesData.results);
+
+        // Fetch real recommendations if user is logged in
+        const user = authService.getUser();
+        if (user && user.id) {
+          const recommendations = await recommendationService.getRecommendationsByUser(user.id);
+          if (recommendations && recommendations.length > 0) {
+            setRecommendedProducts(recommendations.slice(0, 5));
+          } else {
+            // fallback if no recommendations yet
+            setRecommendedProducts(productsData.results.slice(0, 5));
+          }
+        } else {
+          setRecommendedProducts(productsData.results.slice(0, 5));
+        }
       } catch (err: any) {
         setError('Error al cargar el catálogo. Por favor, intente más tarde.');
         console.error(err);
@@ -51,7 +75,7 @@ export function Catalog() {
 
   const handleClearFilters = () => {
     setSelectedCategories([]);
-    setPriceRange([0, 5000]);
+    setPriceRange([0, 10000000]);
     setSelectedRating(0);
     setSearchQuery('');
     setCurrentPage(1);
@@ -61,6 +85,21 @@ export function Catalog() {
     setSearchQuery(query);
     setCurrentPage(1);
   }, []);
+
+  const handleAiResults = (products: Product[], explanation: string, source: string) => {
+    setAiResults(products);
+    setAiExplanation(explanation);
+    setAiSource(source);
+    setAiActive(true);
+    setCurrentPage(1);
+  };
+
+  const handleAiClear = () => {
+    setAiResults([]);
+    setAiExplanation('');
+    setAiSource('');
+    setAiActive(false);
+  };
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -79,12 +118,10 @@ export function Catalog() {
     });
   }, [products, searchQuery, selectedCategories, priceRange, selectedRating]);
 
-  const recommendedProducts = products.slice(0, 5);
-
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const paginatedProducts = filteredProducts.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    (currentPage) * itemsPerPage
   );
 
   if (loading) {
@@ -110,12 +147,98 @@ export function Catalog() {
         )}
 
         {/* Search bar */}
-        <div className="mb-8">
+        <div className="mb-4">
           <SearchBar onSearch={handleSearch} />
         </div>
 
-        {/* Recomendados */}
-        {recommendedProducts.length > 0 && (
+        {/* Barra de búsqueda IA */}
+        <div className="mb-8">
+          <AiSearchBar
+            onResults={handleAiResults}
+            onClear={handleAiClear}
+            isActive={aiActive}
+          />
+        </div>
+
+        {/* Resultados de búsqueda IA */}
+        {aiActive && (
+          <div className="mb-10">
+            {/* Banner de explicación */}
+            <div className={`flex items-start gap-3 p-4 rounded-xl mb-5 border ${
+              aiSource === 'FALLBACK'
+                ? 'bg-amber-50 border-amber-200'
+                : 'bg-purple-50 border-purple-200'
+            }`}>
+              <span className="text-xl flex-shrink-0">
+                {aiSource === 'FALLBACK' ? '⚠️' : '✨'}
+              </span>
+              <div>
+                <p className={`text-sm font-semibold ${
+                  aiSource === 'FALLBACK' ? 'text-amber-700' : 'text-purple-700'
+                }`}>
+                  {aiSource === 'FALLBACK'
+                    ? 'El asistente IA no está disponible ahora'
+                    : aiSource === 'AI+HISTORY'
+                      ? 'Resultados personalizados con IA'
+                      : 'Resultados de búsqueda con IA'}
+                </p>
+                {aiExplanation && (
+                  <p className={`text-sm mt-0.5 ${
+                    aiSource === 'FALLBACK' ? 'text-amber-600' : 'text-purple-600'
+                  }`}>
+                    {aiExplanation}
+                  </p>
+                )}
+              </div>
+              <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                aiSource === 'FALLBACK'
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-purple-100 text-purple-700'
+              }`}>
+                {aiResults.length} resultados
+              </span>
+            </div>
+
+            {aiResults.length === 0 ? (
+              <div className="text-center py-12 text-[#6B7280]">
+                <span className="text-4xl block mb-3">🔍</span>
+                No encontré productos para esa búsqueda. Intenta con otras palabras.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {aiResults.map(product => (
+                  <ProductCard
+                    key={product.id}
+                    id={product.id}
+                    name={product.name}
+                    price={product.price}
+                    image={product.image || ''}
+                    rating={product.average_rating || 0}
+                    stock={product.stock}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Separador para volver al catálogo */}
+            <div className="mt-8 flex items-center gap-4">
+              <div className="flex-1 h-px bg-[#E5E7EB]" />
+              <button
+                onClick={handleAiClear}
+                className="text-sm text-[#6B7280] hover:text-[#2563EB] transition-colors flex items-center gap-1"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+                Ver catálogo completo
+              </button>
+              <div className="flex-1 h-px bg-[#E5E7EB]" />
+            </div>
+          </div>
+        )}
+
+        {/* Recomendados (solo cuando no hay búsqueda IA activa) */}
+        {!aiActive && recommendedProducts.length > 0 && (
           <div className="mb-10">
             <h2 className="text-[#111827] mb-4" style={{ fontSize: '20px', fontWeight: '600' }}>
               Recomendados para ti
@@ -139,7 +262,8 @@ export function Catalog() {
           </div>
         )}
 
-        {/* Main content */}
+        {/* Main content (oculto cuando hay resultados IA activos) */}
+        {!aiActive && (
         <div className="flex flex-col lg:flex-row gap-6">
           <aside className="hidden lg:block lg:w-64 flex-shrink-0">
             <FilterSidebar
@@ -209,6 +333,7 @@ export function Catalog() {
             )}
           </div>
         </div>
+        )} {/* fin !aiActive */}
       </div>
     </div>
   );

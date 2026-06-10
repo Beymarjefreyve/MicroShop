@@ -24,6 +24,15 @@ export function ProductForm({ mode, productId, initialData }: ProductFormProps) 
   const [success, setSuccess] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [apiError, setApiError] = useState<string | null>(null);
+
+  // Nueva categoría inline
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [categoryError, setCategoryError] = useState('');
+
+  // Categorías adicionales seleccionadas (IDs)
+  const [extraCategoryIds, setExtraCategoryIds] = useState<number[]>([]);
   
   const [existingImages, setExistingImages] = useState<{id: number, image: string}[]>(initialData?.images || []);
   const [newImages, setNewImages] = useState<File[]>([]);
@@ -55,6 +64,55 @@ export function ProductForm({ mode, productId, initialData }: ProductFormProps) 
     };
     fetchCategories();
   }, []);
+
+  const handleCreateCategory = async () => {
+    const name = newCategoryName.trim();
+    if (name.length < 2) {
+      setCategoryError('El nombre debe tener al menos 2 caracteres');
+      return;
+    }
+    // Verificar que no exista ya
+    if (categories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+      const existing = categories.find(c => c.name.toLowerCase() === name.toLowerCase());
+      setFormData(prev => ({ ...prev, category: existing!.id }));
+      setShowNewCategory(false);
+      setNewCategoryName('');
+      return;
+    }
+
+    setCategoryError('');
+    setCreatingCategory(true);
+    try {
+      const CATALOG_API = import.meta.env.VITE_CATALOG_URL || 'http://localhost:8002/api';
+      // Generar slug automático desde el nombre
+      const slug = name.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quitar tildes
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+
+      const resp = await fetch(`${CATALOG_API}/categories/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, slug }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.detail || err.slug?.[0] || 'Error al crear la categoría');
+      }
+
+      const created: Category = await resp.json();
+      setCategories(prev => [...prev, created]);
+      setFormData(prev => ({ ...prev, category: created.id }));
+      setErrors(prev => ({ ...prev, category: '' }));
+      setShowNewCategory(false);
+      setNewCategoryName('');
+    } catch (e: any) {
+      setCategoryError(e.message || 'No se pudo crear la categoría');
+    } finally {
+      setCreatingCategory(false);
+    }
+  };
 
   const validateField = (name: string, value: string | number) => {
     let error = '';
@@ -107,6 +165,8 @@ export function ProductForm({ mode, productId, initialData }: ProductFormProps) 
       if (user?.id) {
         payload.append('seller_id', user.id.toString());
       }
+      // Categorías adicionales
+      extraCategoryIds.forEach(id => payload.append('extra_categories', id.toString()));
       
       newImages.forEach(file => {
         payload.append('images', file);
@@ -219,9 +279,70 @@ export function ProductForm({ mode, productId, initialData }: ProductFormProps) 
         </div>
 
         <div>
-          <label className="block text-[#111827] mb-2 font-medium" style={{ fontSize: '14px' }}>
-            Categoría *
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-[#111827] font-medium" style={{ fontSize: '14px' }}>
+              Categoría *
+            </label>
+            <button
+              type="button"
+              onClick={() => { setShowNewCategory(v => !v); setCategoryError(''); setNewCategoryName(''); }}
+              className="flex items-center gap-1 text-xs text-[#2563EB] hover:underline font-medium"
+            >
+              {showNewCategory ? (
+                <>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                  Cancelar
+                </>
+              ) : (
+                <>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                  Crear nueva categoría
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Formulario inline para nueva categoría */}
+          {showNewCategory && (
+            <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs text-[#2563EB] font-medium mb-2">Nueva categoría</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={e => { setNewCategoryName(e.target.value); setCategoryError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleCreateCategory())}
+                  placeholder="Ej: Electrónica, Ropa, Deportes..."
+                  className="flex-1 px-3 py-2 border border-blue-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#2563EB]/30 bg-white"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateCategory}
+                  disabled={creatingCategory || newCategoryName.trim().length < 2}
+                  className="px-4 py-2 bg-[#2563EB] text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {creatingCategory ? (
+                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/>
+                      <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" className="opacity-75"/>
+                    </svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  )}
+                  {creatingCategory ? 'Creando...' : 'Crear'}
+                </button>
+              </div>
+              {categoryError && <p className="text-red-500 text-xs mt-1.5">{categoryError}</p>}
+            </div>
+          )}
+
           <select
             name="category"
             value={formData.category}
@@ -240,6 +361,51 @@ export function ProductForm({ mode, productId, initialData }: ProductFormProps) 
           </select>
           {errors.category && <p className="text-red-600 text-xs mt-1">{errors.category}</p>}
         </div>
+
+        {/* Categorías adicionales */}
+        {categories.length > 0 && (
+          <div>
+            <label className="block text-[#111827] mb-2 font-medium" style={{ fontSize: '14px' }}>
+              Categorías adicionales
+              <span className="ml-2 text-[#6B7280] font-normal text-xs">(opcional — selecciona varias)</span>
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {categories
+                .filter(cat => String(cat.id) !== String(formData.category))
+                .map(cat => {
+                  const selected = extraCategoryIds.includes(cat.id);
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setExtraCategoryIds(prev =>
+                        selected ? prev.filter(id => id !== cat.id) : [...prev, cat.id]
+                      )}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium border-2 transition-all text-left ${
+                        selected
+                          ? 'border-[#2563EB] bg-blue-50 text-[#2563EB]'
+                          : 'border-[#E5E7EB] bg-white text-[#6B7280] hover:border-[#2563EB] hover:text-[#2563EB]'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        {selected && (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                        )}
+                        {cat.name}
+                      </span>
+                    </button>
+                  );
+                })}
+            </div>
+            {extraCategoryIds.length > 0 && (
+              <p className="text-xs text-[#6B7280] mt-2">
+                {extraCategoryIds.length} categoría{extraCategoryIds.length !== 1 ? 's' : ''} adicional{extraCategoryIds.length !== 1 ? 'es' : ''} seleccionada{extraCategoryIds.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Imágenes */}
         <div>

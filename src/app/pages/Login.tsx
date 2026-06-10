@@ -57,13 +57,16 @@ export function Login() {
       
       const roles = data.user?.roles || [];
       
-      if (roles.length > 1) {
-        navigate('/select-role');
-      } else if (roles.includes('ADMIN')) {
+      if (roles.includes('ADMIN')) {
+        localStorage.setItem('activeRole', 'ADMIN');
         navigate('/admin/dashboard');
+      } else if (roles.length > 1) {
+        navigate('/select-role');
       } else if (roles.includes('SELLER')) {
+        localStorage.setItem('activeRole', 'SELLER');
         navigate('/seller/products');
       } else {
+        localStorage.setItem('activeRole', 'BUYER');
         navigate('/catalog');
       }
     } catch (error: any) {

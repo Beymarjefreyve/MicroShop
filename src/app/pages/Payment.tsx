@@ -4,6 +4,8 @@ import { Navbar } from '../components/shared/Navbar';
 import { orderService } from '../services/orderService';
 import { paymentService } from '../services/paymentService';
 import authService from '../services/authService';
+import { recommendationService } from '../services/recommendationService';
+import { formatCOP } from '../utils/format';
 
 type Step = 'email' | 'otp' | 'success';
 
@@ -61,8 +63,22 @@ export function Payment() {
     setLoading(true);
     try {
       await paymentService.confirmPayment(id!, otp);
-      // Mark order as PAGADO in order service
+      // Marcar orden como PAGADO
       await orderService.updateStatus(Number(id), 'PAGADO', 'Pago confirmado con OTP por email', 'Email OTP');
+
+      // Registrar compra en el sistema de recomendaciones (fire-and-forget)
+      const user = authService.getUser();
+      if (user?.id && order?.items?.length > 0) {
+        recommendationService.registerPurchase(
+          user.id,
+          Number(id),
+          order.items.map((item: any) => ({
+            productId: item.product_id,
+            quantity: item.quantity,
+          }))
+        );
+      }
+
       setStep('success');
     } catch (e: any) {
       setError(e.message || 'Código incorrecto. Verifica tu correo e intenta de nuevo.');
@@ -113,7 +129,7 @@ export function Payment() {
               </div>
               <p className="text-[#6B7280] text-sm">Pedido #{id}</p>
               <p className="text-[#111827] text-2xl font-bold mt-1">
-                ${Number(order.total_amount).toFixed(2)}
+                {formatCOP(Number(order.total_amount))}
               </p>
             </div>
 
@@ -187,7 +203,7 @@ export function Payment() {
                 >
                   {loading ? (
                     <><svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" className="opacity-75"/></svg>Verificando...</>
-                  ) : `Confirmar pago $${Number(order.total_amount).toFixed(2)}`}
+                  ) : `Confirmar pago ${formatCOP(Number(order.total_amount))}`}
                 </button>
 
                 <button

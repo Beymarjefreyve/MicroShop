@@ -1,3 +1,5 @@
+import { formatCOP } from '../../utils/format';
+
 interface FilterSidebarProps {
   selectedCategories: string[];
   onCategoryChange: (category: string) => void;
@@ -63,14 +65,15 @@ export function FilterSidebar({
           <input
             type="range"
             min="0"
-            max="5000"
+            max="10000000"
+            step="50000"
             value={priceRange[1]}
             onChange={(e) => onPriceRangeChange([0, parseInt(e.target.value)])}
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#2563EB]"
           />
           <div className="flex items-center justify-between text-sm text-[#6B7280]">
-            <span>${priceRange[0]}</span>
-            <span>${priceRange[1]}</span>
+            <span>{formatCOP(priceRange[0])}</span>
+            <span>{formatCOP(priceRange[1])}</span>
           </div>
         </div>
       </div>

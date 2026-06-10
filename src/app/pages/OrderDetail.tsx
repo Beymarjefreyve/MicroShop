@@ -7,6 +7,9 @@ import { OrderStatusTracker } from '../components/orders/OrderStatusTracker';
 import { orderService } from '../services/orderService';
 import { useCart } from '../hooks/useCart';
 import { catalogService } from '../services/catalogService';
+import authService from '../services/authService';
+import { formatCOP } from '../utils/format';
+
 export function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -16,6 +19,43 @@ export function OrderDetail() {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [incidentModalOpen, setIncidentModalOpen] = useState(false);
+  const [incidentTitle, setIncidentTitle] = useState('');
+  const [incidentDesc, setIncidentDesc] = useState('');
+  const [reportingIncident, setReportingIncident] = useState(false);
+
+  const handleReportIncident = async () => {
+    if (!incidentTitle.trim() || !incidentDesc.trim()) {
+      alert('Por favor completa todos los campos.');
+      return;
+    }
+    setReportingIncident(true);
+    try {
+      const user = authService.getUser();
+      if (user && user.id) {
+        await orderService.createIncident({
+          order_id: Number(order.id),
+          user_id: user.id,
+          user_name: user.name || 'Cliente',
+          title: incidentTitle,
+          description: incidentDesc
+        });
+        setToastMessage('Incidencia reportada correctamente');
+        setToastVisible(true);
+        setIncidentModalOpen(false);
+        setIncidentTitle('');
+        setIncidentDesc('');
+      } else {
+        alert('Debes iniciar sesión para reportar una incidencia.');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Error al reportar la incidencia.');
+    } finally {
+      setReportingIncident(false);
+    }
+  };
+
 
   const fetchOrder = async () => {
     if (!id) return;
@@ -99,10 +139,7 @@ export function OrderDetail() {
     return `${date.getDate()} de ${months[date.getMonth()]} de ${date.getFullYear()}`;
   };
 
-  const subtotal = order.items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0);
-  const shipping = 15.0;
-  const tax = subtotal * 0.19;
-  const total = subtotal + shipping + tax;
+  const total = order.total;
 
   const handleCancelConfirm = async () => {
     if (order) {
@@ -244,45 +281,21 @@ export function OrderDetail() {
                       {item.quantity}
                     </td>
                     <td className="py-4 text-right text-[#6B7280]" style={{ fontSize: '14px' }}>
-                      ${item.price.toFixed(2)}
+                      {formatCOP(item.price)}
                     </td>
                     <td className="py-4 text-right text-[#111827]" style={{ fontSize: '14px', fontWeight: '600' }}>
-                      ${(item.price * item.quantity).toFixed(2)}
+                      {formatCOP(item.price * item.quantity)}
                     </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr className="border-b border-[#E5E7EB]">
-                  <td colSpan={3} className="py-3 text-right text-[#6B7280]" style={{ fontSize: '14px' }}>
-                    Subtotal
-                  </td>
-                  <td className="py-3 text-right text-[#111827]" style={{ fontSize: '14px' }}>
-                    ${subtotal.toFixed(2)}
-                  </td>
-                </tr>
-                <tr className="border-b border-[#E5E7EB]">
-                  <td colSpan={3} className="py-3 text-right text-[#6B7280]" style={{ fontSize: '14px' }}>
-                    Envío
-                  </td>
-                  <td className="py-3 text-right text-[#111827]" style={{ fontSize: '14px' }}>
-                    ${shipping.toFixed(2)}
-                  </td>
-                </tr>
-                <tr className="border-b border-[#E5E7EB]">
-                  <td colSpan={3} className="py-3 text-right text-[#6B7280]" style={{ fontSize: '14px' }}>
-                    Impuestos (19%)
-                  </td>
-                  <td className="py-3 text-right text-[#111827]" style={{ fontSize: '14px' }}>
-                    ${tax.toFixed(2)}
-                  </td>
-                </tr>
                 <tr>
                   <td colSpan={3} className="py-3 text-right text-[#111827]" style={{ fontSize: '16px', fontWeight: '700' }}>
                     Total
                   </td>
                   <td className="py-3 text-right text-[#111827]" style={{ fontSize: '16px', fontWeight: '700' }}>
-                    ${total.toFixed(2)}
+                    {formatCOP(total)}
                   </td>
                 </tr>
               </tfoot>
@@ -342,6 +355,50 @@ export function OrderDetail() {
         onConfirm={handleCancelConfirm}
         orderId={order.id}
       />
+      
+      {incidentModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-[#111827] mb-4 text-xl font-bold">Reportar Incidencia</h2>
+            <div className="mb-4">
+              <label className="block text-[#374151] mb-2 text-sm font-medium font-sans">Asunto / Título</label>
+              <input
+                type="text"
+                value={incidentTitle}
+                onChange={(e) => setIncidentTitle(e.target.value)}
+                placeholder="Ej. Mi producto llegó dañado"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              />
+            </div>
+            <div className="mb-6">
+              <label className="block text-[#374151] mb-2 text-sm font-medium font-sans">Descripción del problema</label>
+              <textarea
+                value={incidentDesc}
+                onChange={(e) => setIncidentDesc(e.target.value)}
+                placeholder="Describe en detalle el problema con tu pedido..."
+                rows={4}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIncidentModalOpen(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleReportIncident}
+                disabled={reportingIncident}
+                className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium disabled:opacity-50"
+              >
+                {reportingIncident ? 'Enviando...' : 'Enviar Reporte'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Toast
         message={toastMessage}
         isVisible={toastVisible}

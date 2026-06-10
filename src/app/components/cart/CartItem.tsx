@@ -1,4 +1,5 @@
 import { CartItem as CartItemType } from '../../context/CartContext';
+import { formatCOP } from '../../utils/format';
 
 interface CartItemProps {
   item: CartItemType;
@@ -48,7 +49,7 @@ export function CartItem({ item, onUpdateQuantity, onRemove, isSelected, onToggl
         </div>
         <div className="mt-2 flex items-center gap-4">
           <span className="text-[#6B7280] text-sm">
-            ${item.price.toFixed(2)} c/u
+            {formatCOP(item.price)} c/u
           </span>
           <div className="flex items-center gap-2 border border-[#E5E7EB] rounded-lg">
             <button
@@ -85,7 +86,7 @@ export function CartItem({ item, onUpdateQuantity, onRemove, isSelected, onToggl
         </button>
         <div className="text-right">
           <div className="text-[#111827] text-lg font-semibold">
-            ${totalPrice.toFixed(2)}
+            {formatCOP(totalPrice)}
           </div>
         </div>
       </div>

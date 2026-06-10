@@ -93,27 +93,6 @@ export function SelectRole() {
           </button>
         )}
 
-        {roles.includes('ADMIN') && (
-          <button
-            onClick={() => handleRoleSelect('ADMIN')}
-            className="w-full p-4 flex items-center justify-between border-2 border-[#E5E7EB] rounded-xl hover:border-[#2563EB] hover:bg-blue-50 transition-all group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                </svg>
-              </div>
-              <div className="text-left">
-                <p className="font-semibold text-[#111827]">Administrador</p>
-                <p className="text-xs text-[#6B7280]">Panel de control del sistema</p>
-              </div>
-            </div>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[#9CA3AF] group-hover:text-[#2563EB]">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
-        )}
       </div>
 
       <button

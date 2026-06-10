@@ -6,6 +6,12 @@ import { ProductCard } from '../components/catalog/ProductCard';
 import { CartContext } from '../context/CartContext';
 import { catalogService, Product } from '../services/catalogService';
 import noImage from '../../assets/no-image.png';
+import { formatCOP } from '../utils/format';
+import { recommendationService } from '../services/recommendationService';
+import authService from '../services/authService';
+import { orderService } from '../services/orderService';
+
+
 
 const imageColors: Record<string, string> = {
   laptop: '#3B82F6',
@@ -36,7 +42,9 @@ export function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const [userRating, setUserRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
-  const [showReviewForm, setShowReviewForm] = useState(true);
+  const [showReviewForm, setShowReviewForm] = useState(false); // false until purchase verified
+  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
+  const [hasPurchased, setHasPurchased] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [sellerStats, setSellerStats] = useState<{
@@ -53,6 +61,33 @@ export function ProductDetail() {
         setLoading(true);
         const data = await catalogService.getProductById(Number(id));
         setProduct(data);
+
+        // Registrar vista en el microservicio de recomendaciones si el usuario está logueado
+        const currentUser = authService.getUser();
+        if (currentUser && currentUser.id) {
+          recommendationService.registerView(currentUser.id, data.id, data.category);
+
+          // Verificar si el usuario ya compró este producto (en órdenes PAGADO/ENTREGADO)
+          try {
+            const orders = await orderService.getOrders(currentUser.id);
+            const purchased = orders.some(order =>
+              ['PAGADO', 'ENTREGADO', 'EN_CAMINO'].includes(order.status) &&
+              order.items.some(item => item.product_id === data.id)
+            );
+            setHasPurchased(purchased);
+
+            // Verificar si el usuario ya dejó una reseña para este producto
+            const existingReview = (data as any).reviews?.some(
+              (r: any) => r.user_id === currentUser.id
+            );
+            setAlreadyReviewed(!!existingReview);
+
+            // Mostrar formulario solo si compró y no ha reseñado aún
+            setShowReviewForm(purchased && !existingReview);
+          } catch {
+            // Si falla la consulta de órdenes, no mostrar el formulario
+          }
+        }
         
         // Fetch related products (same category)
         const related = await catalogService.getProducts({ 
@@ -63,7 +98,7 @@ export function ProductDetail() {
         // Fetch seller info + sales stats
         if (data.seller_id) {
           try {
-            const resp = await fetch(`${CATALOG_URL}/products/seller_info/?seller_id=${data.seller_id}`);
+            const resp = await fetch(`${CATALOG_URL}/products/seller_info/?seller_id=${data.seller_id}&product_id=${data.id}`);
             if (resp.ok) {
               const stats = await resp.json();
               setSellerStats(stats);
@@ -89,7 +124,7 @@ export function ProductDetail() {
 
     const refreshStats = async () => {
       try {
-        const resp = await fetch(`${CATALOG_URL}/products/seller_info/?seller_id=${product.seller_id}`);
+        const resp = await fetch(`${CATALOG_URL}/products/seller_info/?seller_id=${product.seller_id}&product_id=${product.id}`);
         if (resp.ok) {
           const stats = await resp.json();
           setSellerStats(stats);
@@ -139,12 +174,29 @@ export function ProductDetail() {
     setQuantity((prev) => Math.max(1, Math.min(product.stock, prev + delta)));
   };
 
-  const handleSubmitReview = () => {
-    if (userRating > 0 && reviewText.trim()) {
-      alert('Reseña enviada correctamente');
+  const handleSubmitReview = async () => {
+    if (!userRating || !reviewText.trim()) return;
+    const currentUser = authService.getUser();
+    try {
+      const resp = await fetch(`${CATALOG_URL}/reviews/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product: product!.id,
+          user_id: currentUser?.id ?? 0,
+          rating: userRating,
+          comment: reviewText,
+        }),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      setShowReviewForm(false);
       setUserRating(0);
       setReviewText('');
-      setShowReviewForm(false);
+      // Reload product to show updated average_rating
+      const updated = await catalogService.getProductById(Number(id));
+      setProduct(updated);
+    } catch (error) {
+      console.error('Error submitting review:', error);
     }
   };
 
@@ -233,7 +285,7 @@ export function ProductDetail() {
             </div>
 
             <p className="text-[#2563EB] mb-4" style={{ fontSize: '32px', fontWeight: '700' }}>
-              ${product.price.toFixed(2)}
+              {formatCOP(product.price)}
             </p>
 
             <p className="text-[#111827] mb-6 leading-relaxed">
@@ -325,12 +377,67 @@ export function ProductDetail() {
           </div>
         </div>
 
-        {/* Reseñas (Mocked) */}
+        {/* Reseñas */}
         <div className="bg-white rounded-xl shadow-md p-6 mb-8">
           <h2 className="text-[#111827] mb-6" style={{ fontSize: '22px', fontWeight: '600' }}>
             Reseñas de clientes
           </h2>
-          <p className="text-[#6B7280] mb-8">Aún no hay reseñas para este producto.</p>
+
+          {/* Lista de reseñas existentes */}
+          {product.reviews && product.reviews.length > 0 ? (
+            <div className="space-y-4 mb-8">
+              {(product.reviews as any[]).map((review: any) => (
+                <div key={review.id} className="border border-[#E5E7EB] rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <StarRating rating={review.rating} readOnly size="sm" />
+                    <span className="text-[#6B7280] text-xs">Usuario #{review.user_id}</span>
+                  </div>
+                  <p className="text-[#111827] text-sm">{review.comment}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[#6B7280] mb-8">Aún no hay reseñas para este producto.</p>
+          )}
+
+          {/* Formulario para agregar reseña / mensajes de estado */}
+          {showReviewForm ? (
+            <div className="border-t border-[#E5E7EB] pt-6">
+              <h3 className="text-[#111827] mb-4" style={{ fontSize: '16px', fontWeight: '600' }}>
+                Escribir una reseña
+              </h3>
+              <div className="mb-4">
+                <p className="text-[#6B7280] text-sm mb-2">Tu calificación</p>
+                <StarRating rating={userRating} onRatingChange={setUserRating} size="lg" />
+              </div>
+              <textarea
+                value={reviewText}
+                onChange={e => setReviewText(e.target.value)}
+                placeholder="Cuéntanos tu experiencia con este producto..."
+                className="w-full border border-[#E5E7EB] rounded-lg p-3 text-[#111827] text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#2563EB] mb-4"
+                rows={4}
+              />
+              <button
+                disabled={!userRating || !reviewText.trim()}
+                onClick={handleSubmitReview}
+                className="px-6 py-2 bg-[#2563EB] text-white rounded-lg text-sm font-medium hover:bg-[#1D4ED8] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              >
+                Enviar reseña
+              </button>
+            </div>
+          ) : alreadyReviewed ? (
+            <p className="text-[#6B7280] text-sm border-t border-[#E5E7EB] pt-4">
+              Ya escribiste una reseña para este producto.
+            </p>
+          ) : hasPurchased ? (
+            <p className="text-green-600 text-sm font-medium border-t border-[#E5E7EB] pt-4">
+              ✓ Tu reseña fue enviada correctamente.
+            </p>
+          ) : authService.getUser() ? (
+            <p className="text-[#6B7280] text-sm border-t border-[#E5E7EB] pt-4">
+              Solo puedes dejar una reseña si compraste este producto.
+            </p>
+          ) : null}
         </div>
 
         {/* También te puede gustar */}

@@ -1,4 +1,5 @@
 import { AdminOrder } from '../../types/order';
+import { formatCOP } from '../../utils/format';
 
 interface OrderDrawerProps {
   order: AdminOrder | null;
@@ -25,9 +26,7 @@ export function OrderDrawer({ order, isOpen, onClose }: OrderDrawerProps) {
   };
 
   const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = 10.00;
-  const tax = subtotal * 0.19;
-  const total = subtotal + shipping + tax;
+  const total = order.total;
 
   return (
     <>
@@ -75,7 +74,7 @@ export function OrderDrawer({ order, isOpen, onClose }: OrderDrawerProps) {
             </div>
             <div className="text-right">
               <p className="font-bold uppercase tracking-wider" style={{ fontSize: '12px', opacity: 0.8 }}>Total del Pedido</p>
-              <p className="text-xl font-bold">${order.total.toFixed(2)}</p>
+              <p className="text-xl font-bold">{formatCOP(order.total)}</p>
             </div>
           </div>
 
@@ -151,13 +150,13 @@ export function OrderDrawer({ order, isOpen, onClose }: OrderDrawerProps) {
                         Cantidad: <span className="font-bold text-[#111827] dark:text-white">{item.quantity}</span>
                       </p>
                       <p className="text-[#6B7280] dark:text-[#9CA3AF]" style={{ fontSize: '13px' }}>
-                        Precio Unit: <span className="font-bold text-[#111827] dark:text-white">${item.price.toFixed(2)}</span>
+                        Precio Unit: <span className="font-bold text-[#111827] dark:text-white">{formatCOP(item.price)}</span>
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-[#111827] dark:text-white font-bold" style={{ fontSize: '16px' }}>
-                      ${(item.price * item.quantity).toFixed(2)}
+                      {formatCOP(item.price * item.quantity)}
                     </p>
                   </div>
                 </div>
@@ -168,21 +167,15 @@ export function OrderDrawer({ order, isOpen, onClose }: OrderDrawerProps) {
           {/* Totals Summary */}
           <div className="bg-gray-900 text-white rounded-3xl p-8 shadow-xl">
             <div className="space-y-3">
-              <div className="flex justify-between text-gray-400">
-                <span style={{ fontSize: '14px' }}>Subtotal</span>
-                <span className="text-white">${subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-gray-400">
-                <span style={{ fontSize: '14px' }}>Gastos de Envío</span>
-                <span className="text-white">${shipping.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-gray-400 pb-4 border-b border-white/10">
-                <span style={{ fontSize: '14px' }}>Impuestos (IVA 19%)</span>
-                <span className="text-white">${tax.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center pt-2">
-                <span className="text-lg font-bold">Total Final</span>
-                <span className="text-3xl font-bold text-[#3B82F6]">${total.toFixed(2)}</span>
+              {order.items.map((item, index) => (
+                <div key={index} className="flex justify-between text-gray-400">
+                  <span style={{ fontSize: '14px' }} className="truncate mr-4">{item.name} × {item.quantity}</span>
+                  <span className="text-white flex-shrink-0">{formatCOP(item.price * item.quantity)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between items-center pt-4 border-t border-white/10">
+                <span className="text-lg font-bold">Total</span>
+                <span className="text-3xl font-bold text-[#3B82F6]">{formatCOP(total)}</span>
               </div>
             </div>
           </div>

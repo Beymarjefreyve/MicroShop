@@ -12,9 +12,7 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
   const menuItems = [
     { path: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
     { path: '/admin/users', label: 'Usuarios', icon: '👥' },
-    { path: '/admin/orders', label: 'Pedidos', icon: '📦' },
-    { path: '/admin/incidents', label: 'Incidencias', icon: '⚠️' },
-    { path: '/admin/inventory', label: 'Inventario', icon: '📋' }
+    { path: '/admin/orders', label: 'Pedidos', icon: '📦' }
   ];
 
   return (

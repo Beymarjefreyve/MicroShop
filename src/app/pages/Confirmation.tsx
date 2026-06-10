@@ -4,6 +4,7 @@ import { Navbar } from '../components/shared/Navbar';
 import { CheckoutStepper } from '../components/cart/CheckoutStepper';
 import { SuccessAnimation } from '../components/cart/SuccessAnimation';
 import { useCart } from '../hooks/useCart';
+import { formatCOP } from '../utils/format';
 
 export function Confirmation() {
   const navigate = useNavigate();
@@ -30,8 +31,8 @@ export function Confirmation() {
     0
   );
   const shipping = subtotal > 100 ? 0 : 5.0;
-  const tax = subtotal * 0.19;
-  const total = subtotal + shipping + tax;
+  const tax = (subtotal / 1.19) * 0.19;
+  const total = subtotal + shipping;
 
   // Clear cart when leaving this page
   useEffect(() => {
@@ -101,7 +102,7 @@ export function Confirmation() {
               <div className="flex justify-between pt-3 border-t border-[#E5E7EB]">
                 <span className="text-[#111827] font-semibold">Total pagado (inc. impuestos)</span>
                 <span className="text-[#111827] text-xl font-bold">
-                  ${total.toFixed(2)}
+                  {formatCOP(total)}
                 </span>
               </div>
             </div>
@@ -116,7 +117,7 @@ export function Confirmation() {
                       {item.name} × {item.quantity}
                     </span>
                     <span className="text-[#111827]">
-                      ${(item.price * item.quantity).toFixed(2)}
+                      {formatCOP(item.price * item.quantity)}
                     </span>
                   </div>
                 ))}

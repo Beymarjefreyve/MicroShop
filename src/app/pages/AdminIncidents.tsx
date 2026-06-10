@@ -1,17 +1,56 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminLayout } from '../components/admin/AdminLayout';
 import { IncidentCard } from '../components/admin/IncidentCard';
 import { ObservationModal } from '../components/admin/ObservationModal';
-import { incidents as initialIncidents, Incident } from '../data/incidents';
+import { orderService, Incident as DBIncident } from '../services/orderService';
+import { Incident } from '../data/incidents';
 
 export function AdminIncidents() {
-  const [incidents, setIncidents] = useState<Incident[]>(initialIncidents);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [showObservationModal, setShowObservationModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [incidentToCancel, setIncidentToCancel] = useState<Incident | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+
+  const fetchIncidents = async () => {
+    try {
+      setLoading(true);
+      const data = await orderService.getIncidents();
+      const mapped = data.map((inc: DBIncident) => {
+        let displayStatus: 'abierta' | 'en revisión' | 'resuelta' = 'abierta';
+        if (inc.status === 'REVISION') displayStatus = 'en revisión';
+        else if (inc.status === 'RESUELTA') displayStatus = 'resuelta';
+
+        return {
+          id: inc.id.toString(),
+          status: displayStatus,
+          orderId: inc.order_id.toString(),
+          createdDate: inc.created_at,
+          userName: inc.user_name || `Usuario #${inc.user_id}`,
+          userEmail: 'cliente@microshop.com',
+          description: inc.description,
+          observations: inc.comment ? [{
+            id: 1,
+            author: 'Administrador',
+            text: inc.comment,
+            date: inc.updated_at.split('T')[0]
+          }] : []
+        };
+      });
+      setIncidents(mapped);
+    } catch (e) {
+      console.error('Error fetching incidents:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchIncidents();
+  }, []);
 
   const handleViewDetails = (incident: Incident) => {
     setSelectedIncident(incident);
@@ -23,47 +62,43 @@ export function AdminIncidents() {
     setShowCancelModal(true);
   };
 
-  const confirmCancelOrder = () => {
+  const confirmCancelOrder = async () => {
     if (incidentToCancel) {
-      setIncidents(
-        incidents.map((inc) =>
-          inc.id === incidentToCancel.id ? { ...inc, status: 'resuelta' } : inc
-        )
-      );
-      setShowCancelModal(false);
-      setIncidentToCancel(null);
-      showToastMessage('Pedido cancelado y incidencia resuelta correctamente');
+      try {
+        await orderService.cancelOrder(Number(incidentToCancel.orderId));
+        await orderService.updateIncidentStatus(Number(incidentToCancel.id), 'RESUELTA', 'Pedido cancelado por el administrador');
+        await fetchIncidents();
+        setShowCancelModal(false);
+        setIncidentToCancel(null);
+        showToastMessage('Pedido cancelado y incidencia resuelta correctamente');
+      } catch (e) {
+        console.error('Error al cancelar pedido/incidencia:', e);
+      }
     }
   };
 
-  const handleMarkResolved = (incident: Incident) => {
-    setIncidents(
-      incidents.map((inc) =>
-        inc.id === incident.id ? { ...inc, status: 'resuelta' } : inc
-      )
-    );
-    showToastMessage('Incidencia marcada como resuelta');
+  const handleMarkResolved = async (incident: Incident) => {
+    try {
+      await orderService.updateIncidentStatus(Number(incident.id), 'RESUELTA', 'Marcada como resuelta por el administrador');
+      await fetchIncidents();
+      showToastMessage('Incidencia marcada como resuelta');
+    } catch (e) {
+      console.error('Error al resolver incidencia:', e);
+    }
   };
 
-  const handleAddObservation = (incidentId: string, observation: string) => {
-    setIncidents(
-      incidents.map((inc) => {
-        if (inc.id === incidentId) {
-          const newObservation = {
-            id: inc.observations.length + 1,
-            author: 'Admin María González',
-            text: observation,
-            date: new Date().toISOString().split('T')[0]
-          };
-          return {
-            ...inc,
-            observations: [...inc.observations, newObservation]
-          };
-        }
-        return inc;
-      })
-    );
-    showToastMessage('Observación agregada correctamente');
+  const handleAddObservation = async (incidentId: string, observation: string) => {
+    try {
+      const inc = incidents.find(i => i.id === incidentId);
+      if (inc) {
+        const newStatus = inc.status === 'abierta' ? 'REVISION' : inc.status.toUpperCase();
+        await orderService.updateIncidentStatus(Number(incidentId), newStatus, observation);
+        await fetchIncidents();
+        showToastMessage('Observación agregada correctamente');
+      }
+    } catch (e) {
+      console.error('Error al agregar observación:', e);
+    }
   };
 
   const showToastMessage = (message: string) => {
@@ -75,6 +110,16 @@ export function AdminIncidents() {
   const openIncidents = incidents.filter((inc) => inc.status === 'abierta');
   const reviewIncidents = incidents.filter((inc) => inc.status === 'en revisión');
   const resolvedIncidents = incidents.filter((inc) => inc.status === 'resuelta');
+
+  if (loading) {
+    return (
+      <AdminLayout title="Incidencias">
+        <div className="flex justify-center items-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2563EB]"></div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout title="Incidencias">
@@ -178,6 +223,15 @@ export function AdminIncidents() {
               />
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {incidents.length === 0 && (
+        <div className="text-center py-16 bg-white dark:bg-[#1F2937] rounded-xl border border-[#E5E7EB] dark:border-[#374151]">
+          <p className="text-4xl mb-4">🎉</p>
+          <h3 className="text-lg font-semibold text-[#111827] dark:text-white mb-2">Sin incidencias</h3>
+          <p className="text-[#6B7280] dark:text-[#9CA3AF]">¡Excelente! No hay incidencias reportadas en el sistema.</p>
         </div>
       )}
 

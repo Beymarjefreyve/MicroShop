@@ -1,3 +1,5 @@
+import { formatCOP } from '../../utils/format';
+
 interface OrderSummaryProps {
   subtotal: number;
   onCheckout?: () => void;
@@ -12,8 +14,8 @@ export function OrderSummary({
   showActions = true,
 }: OrderSummaryProps) {
   const shipping = subtotal > 100 ? 0 : 5.0;
-  const tax = subtotal * 0.19;
-  const total = subtotal + shipping + tax;
+  const tax = (subtotal / 1.19) * 0.19;
+  const total = subtotal + shipping;
 
   return (
     <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 sticky top-20">
@@ -22,14 +24,14 @@ export function OrderSummary({
       <div className="space-y-3 mb-4">
         <div className="flex justify-between text-[#6B7280]">
           <span>Subtotal</span>
-          <span>${subtotal.toFixed(2)}</span>
+          <span>{formatCOP(subtotal)}</span>
         </div>
         <div className="flex justify-between text-[#6B7280]">
           <span>Envío</span>
           {shipping === 0 ? (
             <span className="text-green-600 font-medium">Gratis</span>
           ) : (
-            <span>${shipping.toFixed(2)}</span>
+            <span>{formatCOP(shipping)}</span>
           )}
         </div>
         {subtotal > 100 && (
@@ -37,13 +39,9 @@ export function OrderSummary({
             ¡Envío gratis en compras mayores a $100!
           </div>
         )}
-        <div className="flex justify-between text-[#6B7280]">
-          <span>Impuesto (19%)</span>
-          <span>${tax.toFixed(2)}</span>
-        </div>
         <div className="border-t border-[#E5E7EB] pt-3 flex justify-between">
           <span className="text-[#111827] text-lg font-semibold">Total</span>
-          <span className="text-[#111827] text-xl font-bold">${total.toFixed(2)}</span>
+          <span className="text-[#111827] text-xl font-bold">{formatCOP(total)}</span>
         </div>
       </div>
 

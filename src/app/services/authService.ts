@@ -166,6 +166,20 @@ const authService = {
     return true;
   },
 
+  async getAllUsers(): Promise<any[]> {
+    const response = await fetch(`${API_URL}/users`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${this.getToken()}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error('Error al obtener los usuarios');
+    }
+    return response.json();
+  },
+
   // Helpers
   mapRole(backendRole: string): string {
     const roles: Record<string, string> = {
