@@ -92,7 +92,10 @@ export function ProductForm({ mode, productId, initialData }: ProductFormProps) 
 
       const resp = await fetch(`${CATALOG_API}/categories/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authService.getToken()}`,
+        },
         body: JSON.stringify({ name, slug }),
       });
 
