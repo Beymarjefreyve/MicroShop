@@ -95,19 +95,27 @@ export function ProductDetail() {
         });
         setRelatedProducts(related.results.filter(p => p.id !== data.id).slice(0, 4));
 
-        // Fetch seller info + sales stats
+        // Fetch seller info + sales stats (con reintento para cold starts de Render)
         if (data.seller_id) {
-          try {
-            const resp = await fetch(`${CATALOG_URL}/products/seller_info/?seller_id=${data.seller_id}&product_id=${data.id}`, {
-              headers: { 'Authorization': `Bearer ${authService.getToken()}` }
-            });
-            if (resp.ok) {
-              const stats = await resp.json();
-              setSellerStats(stats);
+          const fetchSellerInfo = async (retries = 3, delay = 4000): Promise<void> => {
+            try {
+              const resp = await fetch(`${CATALOG_URL}/products/seller_info/?seller_id=${data.seller_id}&product_id=${data.id}`, {
+                headers: { 'Authorization': `Bearer ${authService.getToken()}` }
+              });
+              if (resp.ok) {
+                const stats = await resp.json();
+                setSellerStats(stats);
+              } else if (retries > 0) {
+                setTimeout(() => fetchSellerInfo(retries - 1, delay), delay);
+              }
+            } catch (e) {
+              console.warn('No se pudo cargar info del vendedor', e);
+              if (retries > 0) {
+                setTimeout(() => fetchSellerInfo(retries - 1, delay), delay);
+              }
             }
-          } catch (e) {
-            console.warn('No se pudo cargar info del vendedor', e);
-          }
+          };
+          fetchSellerInfo();
         }
       } catch (err: any) {
         setError('No se pudo cargar el producto.');
