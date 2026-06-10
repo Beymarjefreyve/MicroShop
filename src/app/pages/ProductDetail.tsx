@@ -192,7 +192,10 @@ export function ProductDetail() {
     try {
       const resp = await fetch(`${CATALOG_URL}/reviews/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authService.getToken()}`,
+        },
         body: JSON.stringify({
           product: product!.id,
           user_id: currentUser?.id ?? 0,
