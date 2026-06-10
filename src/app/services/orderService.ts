@@ -1,4 +1,11 @@
+import authService from './authService';
+
 const API_URL = import.meta.env.VITE_ORDER_URL || 'http://localhost:8004/api/orders';
+
+const authHeaders = () => ({
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${authService.getToken()}`,
+});
 
 export interface OrderItem {
     id: number;
@@ -48,7 +55,9 @@ export interface Incident {
 export const orderService = {
     async getOrders(userId: number, params?: Record<string, string>): Promise<Order[]> {
         const queryParams = new URLSearchParams({ user_id: userId.toString(), ...params }).toString();
-        const response = await fetch(`${API_URL}/?${queryParams}`);
+        const response = await fetch(`${API_URL}/?${queryParams}`, {
+            headers: authHeaders(),
+        });
         if (!response.ok) throw new Error('Failed to fetch orders');
         const data = await response.json();
         return Array.isArray(data) ? data : data.results;
@@ -56,14 +65,18 @@ export const orderService = {
 
     async getAllOrders(params?: Record<string, string>): Promise<Order[]> {
         const queryString = params ? '?' + new URLSearchParams(params).toString() : '';
-        const response = await fetch(`${API_URL}/${queryString}`);
+        const response = await fetch(`${API_URL}/${queryString}`, {
+            headers: authHeaders(),
+        });
         if (!response.ok) throw new Error('Failed to fetch all orders');
         const data = await response.json();
         return Array.isArray(data) ? data : data.results;
     },
 
     async getOrderById(id: number): Promise<Order> {
-        const response = await fetch(`${API_URL}/${id}/`);
+        const response = await fetch(`${API_URL}/${id}/`, {
+            headers: authHeaders(),
+        });
         if (!response.ok) throw new Error('Failed to fetch order');
         return response.json();
     },
@@ -71,7 +84,7 @@ export const orderService = {
     async createOrder(orderData: { user_id: number; user_name?: string; user_email?: string; total_amount: number; tax_amount?: number; shipping_address: string; items: any[] }): Promise<Order> {
         const response = await fetch(`${API_URL}/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders(),
             body: JSON.stringify(orderData),
         });
         if (!response.ok) {
@@ -84,7 +97,7 @@ export const orderService = {
     async cancelOrder(id: number): Promise<Order> {
         const response = await fetch(`${API_URL}/${id}/cancel/`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders(),
         });
         if (!response.ok) {
             const error = await response.json();
@@ -96,7 +109,7 @@ export const orderService = {
     async updateStatus(id: number, status: string, comment: string = '', paymentMethod?: string): Promise<Order> {
         const response = await fetch(`${API_URL}/${id}/update_status/`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders(),
             body: JSON.stringify({ status, comment, payment_method: paymentMethod }),
         });
         if (!response.ok) {
@@ -108,7 +121,9 @@ export const orderService = {
 
     async getIncidents(params?: Record<string, string>): Promise<Incident[]> {
         const queryParams = params ? '?' + new URLSearchParams(params).toString() : '';
-        const response = await fetch(`${API_URL}/incidents/${queryParams}`);
+        const response = await fetch(`${API_URL}/incidents/${queryParams}`, {
+            headers: authHeaders(),
+        });
         if (!response.ok) throw new Error('Failed to fetch incidents');
         const data = await response.json();
         return Array.isArray(data) ? data : data.results;
@@ -117,7 +132,7 @@ export const orderService = {
     async createIncident(incidentData: { order_id: number; user_id: number; user_name: string; title: string; description: string }): Promise<Incident> {
         const response = await fetch(`${API_URL}/incidents/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders(),
             body: JSON.stringify(incidentData),
         });
         if (!response.ok) throw new Error('Failed to create incident');
@@ -127,7 +142,7 @@ export const orderService = {
     async updateIncidentStatus(id: number, status: string, comment: string): Promise<Incident> {
         const response = await fetch(`${API_URL}/incidents/${id}/`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders(),
             body: JSON.stringify({ status, comment }),
         });
         if (!response.ok) throw new Error('Failed to update incident');

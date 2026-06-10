@@ -1,5 +1,11 @@
-// Usar 127.0.0.1 para evitar problemas de resolución de 'localhost' en algunos navegadores/Windows
+import authService from './authService';
+
 const API_URL = import.meta.env.VITE_CART_URL || 'http://127.0.0.1:8005/api/cart';
+
+const authHeaders = () => ({
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${authService.getToken()}`,
+});
 
 export interface CartItem {
     id: number;
@@ -22,7 +28,9 @@ export interface Cart {
 
 export const cartService = {
     async getCart(userId: number): Promise<Cart> {
-        const response = await fetch(`${API_URL}/?user_id=${userId}`);
+        const response = await fetch(`${API_URL}/?user_id=${userId}`, {
+            headers: authHeaders(),
+        });
         if (!response.ok) throw new Error('No se pudo cargar el carrito');
         return response.json();
     },
@@ -31,7 +39,7 @@ export const cartService = {
         try {
             const response = await fetch(`${API_URL}/add_item/`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: authHeaders(),
                 body: JSON.stringify({
                     user_id: userId,
                     product_id: product.id,
@@ -40,7 +48,7 @@ export const cartService = {
                     quantity: quantity
                 }),
             });
-            
+
             if (!response.ok) {
                 const contentType = response.headers.get("content-type");
                 if (contentType && contentType.indexOf("application/json") !== -1) {
@@ -54,7 +62,7 @@ export const cartService = {
             return response.json();
         } catch (error: any) {
             if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
-                throw new Error('No se pudo conectar con el servicio de carrito. Verifica que el servidor esté corriendo en el puerto 8005.');
+                throw new Error('No se pudo conectar con el servicio de carrito.');
             }
             throw error;
         }
@@ -64,14 +72,14 @@ export const cartService = {
         try {
             const response = await fetch(`${API_URL}/update_quantity/`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: authHeaders(),
                 body: JSON.stringify({
                     user_id: userId,
                     item_id: itemId,
                     quantity: quantity
                 }),
             });
-            
+
             if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.error || 'No hay suficiente stock disponible');
@@ -88,7 +96,7 @@ export const cartService = {
     async removeItem(userId: number, itemId: number, isCheckout: boolean = false): Promise<Cart> {
         const response = await fetch(`${API_URL}/remove_item/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders(),
             body: JSON.stringify({
                 user_id: userId,
                 item_id: itemId,
@@ -102,7 +110,7 @@ export const cartService = {
     async bulkRemoveItems(userId: number, itemIds: number[], isCheckout: boolean = false): Promise<Cart> {
         const response = await fetch(`${API_URL}/bulk_remove/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders(),
             body: JSON.stringify({
                 user_id: userId,
                 item_ids: itemIds,
@@ -116,7 +124,7 @@ export const cartService = {
     async clearCart(userId: number, isCheckout: boolean = false): Promise<Cart> {
         const response = await fetch(`${API_URL}/clear/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders(),
             body: JSON.stringify({ user_id: userId, is_checkout: isCheckout }),
         });
         if (!response.ok) throw new Error('Error al vaciar el carrito');

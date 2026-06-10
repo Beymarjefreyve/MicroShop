@@ -1,10 +1,17 @@
+import authService from './authService';
+
 const API_URL = import.meta.env.VITE_PAYMENT_API_URL || 'http://localhost:8008/api/payments';
+
+const authHeaders = () => ({
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${authService.getToken()}`,
+});
 
 export const paymentService = {
   async initiatePayment(orderId: string, email: string): Promise<{ paymentId: number; status: string; message: string }> {
     const response = await fetch(`${API_URL}/initiate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ orderId, email }),
     });
     if (!response.ok) {
@@ -17,7 +24,7 @@ export const paymentService = {
   async confirmPayment(orderId: string, otpCode: string): Promise<{ message: string; status: string }> {
     const response = await fetch(`${API_URL}/confirm`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ orderId, otpCode }),
     });
     const data = await response.json();

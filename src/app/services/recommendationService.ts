@@ -1,13 +1,21 @@
 import { API_CONFIG } from '@/config/api';
-import { Product, catalogService } from './catalogService';
+import authService from './authService';
+import { Product } from './catalogService';
 
 const API_URL = API_CONFIG.RECOMMENDATION_URL;
+
+const authHeaders = () => ({
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${authService.getToken()}`,
+});
 
 export const recommendationService = {
   // Obtener recomendaciones por usuario
   async getRecommendationsByUser(userId: number): Promise<Product[]> {
     try {
-      const response = await fetch(`${API_URL}/user/${userId}`);
+      const response = await fetch(`${API_URL}/user/${userId}`, {
+        headers: authHeaders(),
+      });
       if (!response.ok) {
         console.warn(`Recomendaciones fallidas para usuario ${userId}: ${response.status}`);
         return [];
@@ -34,7 +42,9 @@ export const recommendationService = {
   // Obtener productos similares
   async getSimilarProducts(productId: number): Promise<Product[]> {
     try {
-      const response = await fetch(`${API_URL}/similar/${productId}`);
+      const response = await fetch(`${API_URL}/similar/${productId}`, {
+        headers: authHeaders(),
+      });
       if (!response.ok) return [];
       const data = await response.json();
       return Array.isArray(data) ? data.map((item: any) => ({
@@ -55,12 +65,12 @@ export const recommendationService = {
     }
   },
 
-  // Registrar visualización de producto (evento manual o via click)
+  // Registrar visualización de producto
   async registerView(userId: number, productId: number, categoryId: number): Promise<void> {
     try {
       await fetch(`${API_URL}/views`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ userId, productId, categoryId }),
       });
     } catch (e) {
@@ -77,7 +87,7 @@ export const recommendationService = {
     try {
       await fetch(`${API_URL}/purchases`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ userId, orderId, items }),
       });
     } catch (e) {
@@ -95,7 +105,7 @@ export const recommendationService = {
   }> {
     const response = await fetch(`${API_URL}/ai/search`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ userId, prompt, limit }),
     });
     if (!response.ok) {
@@ -103,7 +113,6 @@ export const recommendationService = {
       throw new Error(err.message || `Error ${response.status} en búsqueda IA`);
     }
     const data = await response.json();
-    // Normalizar los productos al mismo formato que usa el catálogo
     const products: Product[] = (data.products || []).map((item: any) => ({
       id: item.productId,
       name: item.name || '',
@@ -123,4 +132,3 @@ export const recommendationService = {
     };
   }
 };
-
